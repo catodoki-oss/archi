@@ -311,16 +311,17 @@ window.onload = function() {
   try {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
-    db.enablePersistence({synchronizeTabs:true}).catch(function(){});
+
   } catch(e) {
     setLoadingError('Firebase 초기화 오류: ' + e.message); return;
   }
 
   var tid = setTimeout(function(){
-    setLoadingError('연결 시간 초과 (12초)\n\n• Firestore 보안 규칙에서 읽기가 허용되어 있는지 확인하세요\n• Firebase 콘솔 → Firestore → 규칙(Rules) 탭 확인\n• 인터넷 연결 상태 확인 후 새로고침');
-  }, 12000);
+    setLoadingError('연결 시간 초과\n새로고침을 눌러 다시 시도해 주세요.');
+  }, 15000);
 
-  Promise.all([loadAdmin(), loadCompanies()])
+  loadAdmin()
+    .then(function(){ return loadCompanies(); })
     .then(function(){
       clearTimeout(tid);
       renderCompanyList();
@@ -330,13 +331,7 @@ window.onload = function() {
     .catch(function(e){
       clearTimeout(tid);
       var msg = e.message || String(e);
-      var hint = '';
-      if (msg.indexOf('permission') >= 0 || msg.indexOf('PERMISSION_DENIED') >= 0) {
-        hint = '\n\n🔒 원인: Firestore 보안 규칙이 읽기를 차단하고 있습니다.\n\n해결 방법:\nFirebase 콘솔 → Firestore Database\n→ 규칙(Rules) 탭 → 아래 내용으로 교체 후 게시:\n\nrules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}';
-      } else if (msg.indexOf('network') >= 0 || msg.indexOf('unavailable') >= 0) {
-        hint = '\n\n📡 원인: 네트워크 연결 문제\n새로고침하거나 인터넷 연결을 확인하세요.';
-      }
-      setLoadingError('데이터 로드 실패\n오류: ' + msg + hint);
+      setLoadingError('데이터 로드 실패\n오류: ' + msg + '\n\n새로고침을 눌러 다시 시도해 주세요.');
     });
 };
 
