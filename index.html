@@ -136,6 +136,28 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;hei
 .empty-state .icon{font-size:2.5rem;margin-bottom:7px;}
 @media(min-width:600px){.toast{left:auto;max-width:320px;}}
 @media(max-width:480px){.login-box{padding:28px 18px;}.detail-grid{grid-template-columns:1fr;}.form-grid{grid-template-columns:1fr;}.stats-grid{grid-template-columns:repeat(2,1fr);}header h1{font-size:.88rem;}}
+/* 통일 관리 버튼 */
+.act-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 10px;height:28px;border:none;border-radius:7px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity .15s;}
+.act-btn:active{opacity:.75;}
+.act-btn-blue{background:#2e86c1;color:white;}
+.act-btn-green{background:#27ae60;color:white;}
+.act-btn-red{background:#e74c3c;color:white;}
+/* stat-card 클릭 가능 */
+.stat-card-click{cursor:pointer;transition:transform .15s,box-shadow .15s;}
+.stat-card-click:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.13);}
+/* 리스트 팝업 */
+.list-popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto;}
+.list-popup-overlay.show{display:flex;}
+.list-popup-box{background:white;border-radius:18px;width:100%;max-width:900px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:auto;}
+.list-popup-header{position:sticky;top:0;background:white;padding:18px 20px 12px;border-bottom:2px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;border-radius:18px 18px 0 0;z-index:1;}
+.list-popup-title{font-size:1rem;font-weight:800;color:#1a5276;}
+.list-popup-body{padding:16px 20px 20px;}
+/* 공사유형 배지 */
+.badge-type-new{background:#fde8e8;color:#c0392b;}
+.badge-type-ext{background:#fef3e2;color:#d35400;}
+.badge-type-reno{background:#e8f8f0;color:#1e8449;}
+.badge-type-change{background:#eaf4fb;color:#1a5276;}
+.badge-type-etc{background:#f0f0f0;color:#555;}
 </style>
 </head>
 <body>
@@ -219,6 +241,15 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;hei
   </div>
 </div>
 
+<div class="list-popup-overlay" id="listPopup">
+  <div class="list-popup-box">
+    <div class="list-popup-header">
+      <div class="list-popup-title" id="listPopupTitle">현장 목록</div>
+      <button type="button" class="modal-close" onclick="closeListPopup()">✕</button>
+    </div>
+    <div class="list-popup-body" id="listPopupBody"></div>
+  </div>
+</div>
 <div class="modal-overlay" id="detailModal">
   <div class="modal-box">
     <div class="modal-title"><span>🏗️ 공사장 상세 정보</span><button type="button" class="modal-close" onclick="closeModal('detailModal')">✕</button></div>
@@ -433,6 +464,11 @@ function calcRisk(s){
   if(s.용도==='근린생활시설'||s.용도==='업무시설')sc+=20;
   if(s.공정률>10&&s.공정률<=80)sc+=15;
   if(s.공정률===0&&daysDiff(s.최종업데이트)>30)sc+=10;
+  // 공사유형 위험 가중치
+  if(s.공사유형==='신축')sc+=20;
+  else if(s.공사유형==='증축')sc+=12;
+  else if(s.공사유형==='대수선')sc+=8;
+  else if(s.공사유형==='용도변경')sc+=5;
   return sc;
 }
 
@@ -651,7 +687,7 @@ function showInspModal(siteId){
     '<div style="background:#eaf4fb;border-radius:10px;padding:10px;margin-bottom:13px"><span style="font-size:.8rem;color:#1a5276;font-weight:700">누적 '+inspList.length+'회 점검</span>'+(inspList.length>0?'<span style="font-size:.75rem;color:#718096;margin-left:8px">최근: '+inspList[inspList.length-1].날짜+'</span>':'')+'</div>'+
     '<div class="form-grid" style="grid-template-columns:1fr 1fr">'+
     '<div class="form-group"><label>점검일 *</label><input type="date" id="insp_date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
-    '<div class="form-group"><label>점검 유형 *</label><select id="insp_type"><option>1차 점검</option><option>2차 점검</option><option>3차 점검</option><option>분기 점검</option><option>해빙기 점검</option><option>우기 점검</option><option>동절기 점검</option><option>준공 전 점검</option><option>특별 점검</option></select></div>'+
+    '<div class="form-group"><label>점검 유형 *</label><input type="text" id="insp_type" placeholder="예: 1차 점검, 해빙기 점검 등 자유 입력"></div>'+
     '<div class="form-group"><label>점검자 *</label><input type="text" id="insp_inspector" placeholder="점검 담당자 이름"></div>'+
     '<div class="form-group form-full"><label>점검 결과 *</label><textarea id="insp_note" rows="3" placeholder="점검 결과, 지적사항, 조치 내용 등"></textarea></div></div>'+
     '<div style="margin-top:12px;display:flex;gap:8px">'+
@@ -770,6 +806,7 @@ function renderRegister(){
     '<div class="form-group form-full"><label>허가(신고)번호 * <small style="color:#718096;font-weight:400">예: 2025-건축정책과-증축신고-175</small></label><input type="text" id="r_permitNo" placeholder="허가번호를 직접 입력"></div>'+
     '<div class="form-group"><label>주소 *</label><input type="text" id="r_주소" placeholder="화성시 ○○읍(동) ○○○-○"></div>'+
     '<div class="form-group"><label>구청 *</label><select id="r_구청"><option value="">선택</option><option>만세구청</option><option>효행구청</option><option>병점구청</option><option>동탄구청</option></select></div>'+
+    '<div class="form-group"><label>공사 유형 *</label><select id="r_공사유형" onchange="updateRiskHint()"><option value="">선택</option><option>신축</option><option>증축</option><option>대수선</option><option>용도변경</option><option>기타</option></select><div style="font-size:.73rem;color:#e74c3c;margin-top:3px;min-height:16px" id="r_유형힌트"></div></div>'+
     '<div class="form-group"><label>건물 용도 *</label><select id="r_용도"><option value="">선택</option><option>단독주택</option><option>다세대주택</option><option>다가구주택</option><option>근린생활시설</option><option>업무시설</option><option>공장</option><option>창고</option><option>기타</option></select></div>'+
     '<div class="form-group"><label>연면적(㎡) *</label><input type="number" id="r_연면적" placeholder="예: 245.6" step="0.1" min="0"></div>'+
     '<div class="form-group"><label>지상 층수 *</label><input type="number" id="r_지상층수" placeholder="예: 3" min="1" max="99"></div>'+
@@ -785,14 +822,14 @@ function submitRegister(){
   var companyId,companyName;
   if(isAdmin){companyId=gv('r_companyId');if(!companyId){showToast('⚠️ 업체를 선택하세요');return;}companyName=(_companies[companyId]||{}).name||'';}
   else{companyId=currentUser.companyId;companyName=currentUser.name;}
-  var req=['r_permitNo','r_주소','r_구청','r_용도','r_연면적','r_지상층수','r_착공일'];
+  var req=['r_permitNo','r_주소','r_구청','r_공사유형','r_용도','r_연면적','r_지상층수','r_착공일'];
   if(req.some(function(id){return !gv(id);})){showToast('⚠️ 필수 항목을 모두 입력해주세요');return;}
   var permitNo=gv('r_permitNo');
   if(_sites.find(function(s){return s.permitNo===permitNo;})){showToast('⚠️ 이미 등록된 허가번호입니다');return;}
   showLoading('현장 등록 중...');
   var pr=parseInt(el('r_pr').value),today=new Date().toISOString().slice(0,10),sid=genId();
   var ns={id:sid,companyId:companyId,companyName:companyName,permitNo:permitNo,
-    주소:gv('r_주소'),구청:gv('r_구청'),용도:gv('r_용도'),
+    주소:gv('r_주소'),구청:gv('r_구청'),용도:gv('r_용도'),공사유형:gv('r_공사유형'),
     연면적:parseFloat(gv('r_연면적')),지상층수:parseInt(gv('r_지상층수'))||0,지하층수:parseInt(gv('r_지하층수'))||0,
     착공일:gv('r_착공일'),예정준공일:gv('r_예정준공일'),공정률:pr,특이사항:gv('r_특이사항'),
     이력:[{날짜:today,공정률:pr,내용:'최초 등록',작성자:companyName}],
@@ -855,13 +892,13 @@ function renderDashboard(){
   var seasonHtml=activeSeason.length?'<div class="card"><div class="card-title">🌡️ 현재 시즌 안전 알림</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+activeSeason.map(function(s){return '<button type="button" class="btn-warning" onclick="adminSendSeasonPopup(\''+s.id+'\')">'+s.icon+' '+s.name+' 팝업 미리보기</button>';}).join('')+'</div><p style="font-size:.77rem;color:#718096;margin-top:8px">※ 시공업체 접속 시 해당 시즌 팝업이 자동 표시됩니다 (월 1회)</p></div>':'';
   return pwWarn+
     '<div class="stats-grid">'+
-    '<div class="stat-card"><div class="stat-num">'+total+'</div><div class="stat-label">📋 전체 현장</div></div>'+
-    '<div class="stat-card success"><div class="stat-num">'+active+'</div><div class="stat-label">🔨 공사 진행 중</div></div>'+
-    '<div class="stat-card danger"><div class="stat-num">'+notStarted+'</div><div class="stat-label">⏸️ 미착공</div></div>'+
-    '<div class="stat-card info"><div class="stat-num">'+done+'</div><div class="stat-label">✅ 완공</div></div>'+
-    '<div class="stat-card warning"><div class="stat-num">'+needInspect+'</div><div class="stat-label">🔍 점검 권장</div></div>'+
-    '<div class="stat-card danger"><div class="stat-num">'+longIdle+'</div><div class="stat-label">⚠️ 장기 미착공</div></div>'+
-    '<div class="stat-card warning"><div class="stat-num">'+delayUp+'</div><div class="stat-label">📅 업데이트 지연</div></div>'+
+    '<div class="stat-card stat-card-click" data-popup="전체" onclick="showListPopup(this.dataset.popup)"><div class="stat-num">'+total+'</div><div class="stat-label">📋 전체 현장</div></div>'+
+    '<div class="stat-card success stat-card-click" data-popup="공사중" onclick="showListPopup(this.dataset.popup)"><div class="stat-num">'+active+'</div><div class="stat-label">🔨 공사 진행 중</div></div>'+
+    '<div class="stat-card danger stat-card-click" data-popup="미착공" onclick="showListPopup(this.dataset.popup)"><div class="stat-num">'+notStarted+'</div><div class="stat-label">⏸️ 미착공</div></div>'+
+    '<div class="stat-card info stat-card-click" data-popup="완공" onclick="showListPopup(this.dataset.popup)"><div class="stat-num">'+done+'</div><div class="stat-label">✅ 완공</div></div>'+
+    '<div class="stat-card warning stat-card-click" data-popup="점검권장" onclick="showListPopup(this.dataset.popup)"><div class="stat-label-click" style="font-size:.6rem;color:#a0aec0;text-align:right">클릭하여 목록 보기</div><div class="stat-num">'+needInspect+'</div><div class="stat-label">🔍 점검 권장</div></div>'+
+    '<div class="stat-card danger stat-card-click" data-popup="장기미착공" onclick="showListPopup(this.dataset.popup)"><div class="stat-num">'+longIdle+'</div><div class="stat-label">⚠️ 장기 미착공</div></div>'+
+    '<div class="stat-card warning stat-card-click" data-popup="업데이트지연" onclick="showListPopup(this.dataset.popup)"><div class="stat-num">'+delayUp+'</div><div class="stat-label">📅 업데이트 지연</div></div>'+
     '<div class="stat-card success"><div class="stat-num">'+totalInsp+'</div><div class="stat-label">🔍 누적 점검</div></div></div>'+
     (longIdle>0?'<div class="alert-banner alert-danger">⚠️ <strong>장기 미착공 '+longIdle+'건</strong></div>':'')+
     (delayUp>0?'<div class="alert-banner alert-warn">📅 <strong>업데이트 지연 '+delayUp+'건</strong></div>':'')+
@@ -911,7 +948,7 @@ function renderAllSites(filter){
           '<td><small>'+s.최종업데이트+'</small></td><td><span class="badge '+(days>30?'badge-red':'badge-gray')+'">'+days+'일</span></td>'+
           '<td><span class="badge '+(inspCnt>0?'badge-green':'badge-gray')+'">'+inspCnt+'회</span></td>'+
           '<td>'+getStatusBadge(s)+'</td>'+
-          '<td><button class="btn-info" onclick="showDetail(\''+s.id+'\')">상세</button><button class="insp-add-btn" style="font-size:.72rem;padding:3px 6px" onclick="showInspModal(\''+s.id+'\')">점검</button><button class="btn-danger" onclick="doDeleteSite(\''+s.id+'\')">삭제</button></td></tr>';
+          '<td style="white-space:nowrap"><button class="act-btn act-btn-blue" onclick="showDetail(\''+s.id+'\')">상세</button> <button class="act-btn act-btn-green" onclick="showInspModal(\''+s.id+'\')">점검</button> <button class="act-btn act-btn-red" onclick="doDeleteSite(\''+s.id+'\')">삭제</button></td></tr>';
       }).join(''))+
     '</table></div></div>';
 }
@@ -1120,6 +1157,60 @@ function exportCSV(){
   showToast('📥 CSV 파일이 다운로드되었습니다');
 }
 
+
+/* ============================================================
+   대시보드 stat-card 리스트 팝업
+============================================================ */
+function getTypeClass(t){
+  var m={'신축':'badge-type-new','증축':'badge-type-ext','대수선':'badge-type-reno','용도변경':'badge-type-change','기타':'badge-type-etc'};
+  return m[t]||'badge-type-etc';
+}
+function showListPopup(type){
+  var sites=_sites.slice();
+  var title='';
+  if(type==='전체'){title='📋 전체 현장 ('+sites.length+'건)';}
+  else if(type==='공사중'){sites=sites.filter(function(s){return s.공정률>0&&s.공정률<100;});title='🔨 공사 진행 중 ('+sites.length+'건)';}
+  else if(type==='미착공'){sites=sites.filter(function(s){return s.공정률===0;});title='⏸️ 미착공 ('+sites.length+'건)';}
+  else if(type==='완공'){sites=sites.filter(function(s){return s.공정률===100;});title='✅ 완공 ('+sites.length+'건)';}
+  else if(type==='점검권장'){sites=sites.filter(function(s){return s.공정률>=30&&s.공정률<=80;});title='🔍 점검 권장 ('+sites.length+'건)';}
+  else if(type==='장기미착공'){sites=sites.filter(function(s){return s.공정률===0&&daysDiff(s.최종업데이트)>30;});title='⚠️ 장기 미착공 ('+sites.length+'건)';}
+  else if(type==='업데이트지연'){sites=sites.filter(function(s){return s.공정률<100&&daysDiff(s.최종업데이트)>30&&s.공정률>0;});title='📅 업데이트 지연 ('+sites.length+'건)';}
+  el('listPopupTitle').textContent=title;
+  if(!sites.length){
+    el('listPopupBody').innerHTML='<div class="empty-state"><div class="icon">✅</div>해당 현장이 없습니다</div>';
+  } else {
+    el('listPopupBody').innerHTML='<div class="table-wrap"><table>'+
+      '<tr><th>No</th><th>허가번호</th><th>업체명</th><th>주소</th><th>공사유형</th><th>용도</th><th>공정률</th><th>상태</th><th>관리</th></tr>'+
+      sites.map(function(s,i){
+        var typeLabel=s.공사유형||'-';
+        var typeCls=getTypeClass(s.공사유형);
+        return '<tr>'+
+          '<td>'+(i+1)+'</td>'+
+          '<td><small style="color:#2e86c1;font-weight:700">'+s.permitNo+'</small></td>'+
+          '<td>'+s.companyName+'</td>'+
+          '<td style="text-align:left;font-size:.77rem">'+s.주소+'</td>'+
+          '<td><span class="badge '+typeCls+'">'+typeLabel+'</span></td>'+
+          '<td>'+s.용도+'</td>'+
+          '<td><div class="progress-wrap"><div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+Math.max(s.공정률,0)+'%"></div></div><small style="font-weight:700">'+s.공정률+'%</small></td>'+
+          '<td>'+getStatusBadge(s)+'</td>'+
+          '<td style="white-space:nowrap"><button class="act-btn act-btn-blue" onclick="closeListPopup();showDetail(&quot;'+s.id+'&quot;)">상세</button> <button class="act-btn act-btn-green" onclick="closeListPopup();showInspModal(&quot;'+s.id+'&quot;)">점검</button></td>'+
+          '</tr>';
+      }).join('')+
+      '</table></div>';
+  }
+  el('listPopup').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function closeListPopup(){
+  el('listPopup').classList.remove('show');
+  document.body.style.overflow='';
+}
+// 공사유형 선택 시 위험 힌트
+function updateRiskHint(){
+  var v=gv('r_공사유형'),h=el('r_유형힌트');if(!h)return;
+  var hints={'신축':'⚠️ 신축은 위험도 점수 +20점 (우선 점검 대상)','증축':'📋 증축 +12점','대수선':'📋 대수선 +8점','용도변경':'📋 용도변경 +5점','기타':''};
+  h.textContent=hints[v]||'';
+}
 /* ============================================================
    이용 안내
 ============================================================ */
