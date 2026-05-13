@@ -141,9 +141,10 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;hei
 <body>
 
 <div id="loadingOverlay">
-  <div class="spinner"></div>
+  <div class="spinner" id="loadingSpinner"></div>
   <div class="loading-text" id="loadingText">Firebase 연결 중...</div>
-  <button id="retryBtn" onclick="location.reload()">🔄 다시 시도</button>
+  <div class="loading-text" id="loadingSub" style="font-size:.82rem;color:#718096;font-weight:400;"></div>
+  <button id="retryBtn" onclick="location.reload()" style="display:none;margin-top:8px;padding:11px 28px;background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;border:none;border-radius:10px;font-size:.93rem;font-weight:700;cursor:pointer;">🔄 다시 시도</button>
 </div>
 
 <div id="loginPage" class="login-wrap" style="display:none">
@@ -304,8 +305,7 @@ var SEASONS = [
 ============================================================ */
 window.onload = function() {
   if (typeof firebase === 'undefined') {
-    setLoadingError('Firebase SDK 로드 실패
-인터넷 연결을 확인하고 새로고침해 주세요.');
+    setLoadingError('Firebase SDK 로드 실패\n인터넷 연결을 확인하고 새로고침해 주세요.');
     return;
   }
   try {
@@ -317,10 +317,7 @@ window.onload = function() {
   }
 
   var tid = setTimeout(function(){
-    setLoadingError('연결 시간 초과
-• 인터넷 연결 확인
-• Firestore 규칙 확인
-• 새로고침 시도');
+    setLoadingError('연결 시간 초과 (12초)\n\n• Firestore 보안 규칙에서 읽기가 허용되어 있는지 확인하세요\n• Firebase 콘솔 → Firestore → 규칙(Rules) 탭 확인\n• 인터넷 연결 상태 확인 후 새로고침');
   }, 12000);
 
   Promise.all([loadAdmin(), loadCompanies()])
@@ -332,15 +329,31 @@ window.onload = function() {
     })
     .catch(function(e){
       clearTimeout(tid);
-      setLoadingError('데이터 로드 실패
-' + e.message + '
-
-Firestore 규칙을 확인하세요.');
+      var msg = e.message || String(e);
+      var hint = '';
+      if (msg.indexOf('permission') >= 0 || msg.indexOf('PERMISSION_DENIED') >= 0) {
+        hint = '\n\n🔒 원인: Firestore 보안 규칙이 읽기를 차단하고 있습니다.\n\n해결 방법:\nFirebase 콘솔 → Firestore Database\n→ 규칙(Rules) 탭 → 아래 내용으로 교체 후 게시:\n\nrules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}';
+      } else if (msg.indexOf('network') >= 0 || msg.indexOf('unavailable') >= 0) {
+        hint = '\n\n📡 원인: 네트워크 연결 문제\n새로고침하거나 인터넷 연결을 확인하세요.';
+      }
+      setLoadingError('데이터 로드 실패\n오류: ' + msg + hint);
     });
 };
 
 function setLoadingError(msg) {
-  document.getElementById('loadingText').textContent = '⚠️ ' + msg;
+  // 스피너 숨기기
+  var sp = document.getElementById('loadingSpinner');
+  if (sp) sp.style.display = 'none';
+  // 오류 메시지 표시
+  var txt = document.getElementById('loadingText');
+  if (txt) { txt.textContent = '⚠️ 연결 오류'; txt.style.color = '#e74c3c'; }
+  var sub = document.getElementById('loadingSub');
+  if (sub) {
+    sub.textContent = msg;
+    sub.style.color = '#e74c3c';
+    sub.style.whiteSpace = 'pre-line';
+    sub.style.lineHeight = '1.8';
+  }
   document.getElementById('retryBtn').style.display = 'block';
 }
 function hideLoading() {
