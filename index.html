@@ -248,9 +248,9 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;hei
 </div>
 <div class="toast" id="toast"></div>
 
-<!-- ★ Firebase compat SDK (모바일 호환성 최적) ★ -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Firebase compat SDK v10 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 /* ============================================================
@@ -273,47 +273,29 @@ var currentUser = null, currentTab = '', editingId = null, selectedCompanyId = n
 var _companies = {}, _sites = [], _adminInfo = null;
 
 var SEASONS = [
-  {id:'haebinggi',name:'해빙기',icon:'🌡️',color:'#e67e22',bgColor:'#fef3e2',months:[2,3],title:'해빙기 안전 수칙 안내',body:'① 절개지·비탈면의 균열, 침하, 토사 유출 여부를 매일 점검하세요.
-② 지반 동결·융해로 인한 가설구조물 기초 변형을 확인하세요.
-③ 경사면 붕괴 위험 구간에 접근을 통제하세요.
-④ 중장비 운행 시 지반 침하에 주의하세요.
-⑤ 비탈면 보호시설 이상 유무를 점검하세요.'},
-  {id:'ugi',name:'우기',icon:'🌧️',color:'#2980b9',bgColor:'#eaf4fb',months:[6,7,8],title:'우기·집중호우 안전 수칙 안내',body:'① 토사 붕괴·흙막이 구조물 변형 여부를 강우 전후 점검하세요.
-② 배수로를 정비하고 양수기를 준비하세요.
-③ 호우 예보 시 굴착 작업을 중단하세요.
-④ 가설 전기시설 누전 차단기 작동 상태를 점검하세요.
-⑤ 호우특보 발령 시 즉시 대피하세요.'},
-  {id:'taepung',name:'태풍·강풍',icon:'🌀',color:'#8e44ad',bgColor:'#f5eef8',months:[8,9],title:'태풍·강풍 대비 안전 수칙 안내',body:'① 가설 비계·동바리 결속 상태를 점검하세요.
-② 낙하물 방지망 고정 상태를 확인하세요.
-③ 양중장비 운행 기준 풍속(초당 10m)을 준수하세요.
-④ 비산 우려 자재를 결박 또는 수거하세요.
-⑤ 태풍 경보 발령 시 전 작업을 중지하세요.'},
-  {id:'donggi',name:'동절기',icon:'❄️',color:'#2c3e50',bgColor:'#eaf2f8',months:[12,1],title:'동절기 안전 수칙 안내',body:'① 한중 콘크리트 기준(보온양생)을 준수하세요.
-② 발판·통로의 결빙 여부를 매일 점검하고 제설하세요.
-③ 용접·용단 작업 시 소화기를 비치하세요.
-④ 방한복, 방한화 등 개인보호장구를 착용하세요.
-⑤ 영하 15℃ 이하 또는 풍속 초당 10m 이상 시 작업을 중지하세요.'},
-  {id:'phyum',name:'폭염',icon:'☀️',color:'#e74c3c',bgColor:'#fde8e8',months:[7,8],title:'폭염 대비 안전 수칙 안내',body:'① 오전 11시~오후 2시 야외 작업을 피하세요.
-② 1시간마다 물 한 컵을 마시세요.
-③ 그늘막, 냉수 등 온열질환 예방시설을 설치하세요.
-④ 어지럼증·두통 등 증세 발생 시 즉시 병원에 가세요.
-⑤ 폭염경보 발령 시 무리한 작업을 중단하세요.'}
+  {id:'haebinggi',name:'해빙기',icon:'🌡️',color:'#e67e22',bgColor:'#fef3e2',months:[2,3],title:'해빙기 안전 수칙 안내',body:'① 절개지·비탈면의 균열, 침하, 토사 유출 여부를 매일 점검하세요.\n② 지반 동결·융해로 인한 가설구조물 기초 변형을 확인하세요.\n③ 경사면 붕괴 위험 구간에 접근을 통제하세요.\n④ 중장비 운행 시 지반 침하에 주의하세요.\n⑤ 비탈면 보호시설 이상 유무를 점검하세요.'},
+  {id:'ugi',name:'우기',icon:'🌧️',color:'#2980b9',bgColor:'#eaf4fb',months:[6,7,8],title:'우기·집중호우 안전 수칙 안내',body:'① 토사 붕괴·흙막이 구조물 변형 여부를 강우 전후 점검하세요.\n② 배수로를 정비하고 양수기를 준비하세요.\n③ 호우 예보 시 굴착 작업을 중단하세요.\n④ 가설 전기시설 누전 차단기 작동 상태를 점검하세요.\n⑤ 호우특보 발령 시 즉시 대피하세요.'},
+  {id:'taepung',name:'태풍·강풍',icon:'🌀',color:'#8e44ad',bgColor:'#f5eef8',months:[8,9],title:'태풍·강풍 대비 안전 수칙 안내',body:'① 가설 비계·동바리 결속 상태를 점검하세요.\n② 낙하물 방지망 고정 상태를 확인하세요.\n③ 양중장비 운행 기준 풍속(초당 10m)을 준수하세요.\n④ 비산 우려 자재를 결박 또는 수거하세요.\n⑤ 태풍 경보 발령 시 전 작업을 중지하세요.'},
+  {id:'donggi',name:'동절기',icon:'❄️',color:'#2c3e50',bgColor:'#eaf2f8',months:[12,1],title:'동절기 안전 수칙 안내',body:'① 한중 콘크리트 기준(보온양생)을 준수하세요.\n② 발판·통로의 결빙 여부를 매일 점검하고 제설하세요.\n③ 용접·용단 작업 시 소화기를 비치하세요.\n④ 방한복, 방한화 등 개인보호장구를 착용하세요.\n⑤ 영하 15℃ 이하 또는 풍속 초당 10m 이상 시 작업을 중지하세요.'},
+  {id:'phyum',name:'폭염',icon:'☀️',color:'#e74c3c',bgColor:'#fde8e8',months:[7,8],title:'폭염 대비 안전 수칙 안내',body:'① 오전 11시~오후 2시 야외 작업을 피하세요.\n② 1시간마다 물 한 컵을 마시세요.\n③ 그늘막, 냉수 등 온열질환 예방시설을 설치하세요.\n④ 어지럼증·두통 등 증세 발생 시 즉시 병원에 가세요.\n⑤ 폭염경보 발령 시 무리한 작업을 중단하세요.'}
 ];
 
 /* ============================================================
    Firebase 초기화 — window.onload 후 실행
 ============================================================ */
-window.onload = function() {
+function startFirebase() {
   if (typeof firebase === 'undefined') {
     setLoadingError('Firebase SDK 로드 실패\n인터넷 연결을 확인하고 새로고침해 주세요.');
     return;
   }
   try {
-    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    if (!firebase.apps || !firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
     db = firebase.firestore();
-
   } catch(e) {
-    setLoadingError('Firebase 초기화 오류: ' + e.message); return;
+    setLoadingError('Firebase 초기화 오류: ' + e.message);
+    return;
   }
 
   var tid = setTimeout(function(){
@@ -333,7 +315,14 @@ window.onload = function() {
       var msg = e.message || String(e);
       setLoadingError('데이터 로드 실패\n오류: ' + msg + '\n\n새로고침을 눌러 다시 시도해 주세요.');
     });
-};
+}
+
+// SDK 스크립트가 이미 body 아래에 동기 로드되므로 바로 실행
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startFirebase);
+} else {
+  startFirebase();
+}
 
 function setLoadingError(msg) {
   // 스피너 숨기기
@@ -612,8 +601,7 @@ function checkSeasonPopup(){
 }
 function showSeasonPopup(s){
   el('seasonIcon').textContent=s.icon;el('seasonTitle').textContent=s.title;
-  el('seasonBody').innerHTML=s.body.replace(/
-/g,'<br>');
+  el('seasonBody').innerHTML=s.body.replace(/\n/g,'<br>');
   var b=el('seasonBadge');b.textContent=s.name+' 안전 주의';b.style.background=s.bgColor;b.style.color=s.color;
   el('seasonPopup').classList.add('show');
 }
@@ -1126,8 +1114,7 @@ function doClearNotifs(){
 function exportCSV(){
   var h=['허가번호','업체명','주소','구청','용도','연면적(㎡)','지상층수','지하층수','착공일','예정준공일','공정률(%)','최종업데이트','점검횟수','최근점검일','특이사항'];
   var rows=_sites.map(function(s){return [s.permitNo,s.companyName,s.주소,s.구청,s.용도,s.연면적,s.지상층수||0,s.지하층수||0,s.착공일,s.예정준공일||'',s.공정률,s.최종업데이트,(s.점검이력||[]).length,s.최근점검일||'',s.특이사항||''];});
-  var csv='\uFEFF'+[h].concat(rows).map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('
-');
+  var csv='\uFEFF'+[h].concat(rows).map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
   a.download='화성시_공사현장현황_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
   showToast('📥 CSV 파일이 다운로드되었습니다');
