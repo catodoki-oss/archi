@@ -2,231 +2,396 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>화성시 공사현장 공정률 관리 시스템</title>
 
-<!-- Firebase compat SDK (차수판 시스템과 동일 방식) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!--
+  ★ Firebase compat SDK — 반지하 차수판 시스템과 동일한 방식
+  ★ 모바일 호환성을 위해 defer/async 없이 순차 로드
+-->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;background:#f0f4f8;color:#2d3748;min-height:100vh;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow-x:hidden;}
+body{font-family:'Malgun Gothic','맑은 고딕',Apple SD Gothic Neo,sans-serif;
+  background:#f0f4f8;color:#2d3748;min-height:100vh;
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;}
 
-/* ── 로딩 ── */
-#loadingOverlay{position:fixed;inset:0;background:rgba(255,255,255,.93);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
-.spinner{width:48px;height:48px;border:5px solid #e2e8f0;border-top-color:#2e86c1;border-radius:50%;animation:spin .8s linear infinite;}
+/* ── 로딩 오버레이 ── */
+#loadingOverlay{
+  position:fixed;inset:0;background:rgba(255,255,255,.96);
+  z-index:9999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;
+  transition:opacity .3s;}
+#loadingOverlay.hide{opacity:0;pointer-events:none;}
+.spinner{width:52px;height:52px;border:5px solid #e2e8f0;
+  border-top-color:#2e86c1;border-radius:50%;
+  animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.loading-text{font-size:.9rem;color:#718096;font-weight:600;}
+.loading-text{font-size:.95rem;color:#4a5568;font-weight:600;text-align:center;padding:0 20px;}
+.loading-sub{font-size:.78rem;color:#a0aec0;text-align:center;}
+#retryBtn{display:none;margin-top:8px;padding:11px 28px;
+  background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;
+  border:none;border-radius:10px;font-size:.93rem;font-weight:700;
+  cursor:pointer;font-family:inherit;}
 
 /* ── 헤더 ── */
-header{background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 10px rgba(0,0,0,.2);position:sticky;top:0;z-index:100;}
-header h1{font-size:1.1rem;font-weight:700;}
-header p{font-size:.75rem;opacity:.85;margin-top:2px;}
-.header-right{display:flex;align-items:center;gap:10px;}
-.badge-admin{background:#e74c3c;color:white;padding:4px 12px;border-radius:20px;font-size:.74rem;font-weight:700;}
-.badge-user{background:#27ae60;color:white;padding:4px 12px;border-radius:20px;font-size:.74rem;font-weight:700;}
-.btn-logout{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:white;padding:6px 13px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.81rem;}
+header{background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;
+  padding:13px 20px;display:flex;align-items:center;
+  justify-content:space-between;box-shadow:0 3px 10px rgba(0,0,0,.2);
+  position:sticky;top:0;z-index:100;}
+header h1{font-size:1rem;font-weight:700;line-height:1.3;}
+header p{font-size:.72rem;opacity:.85;margin-top:2px;}
+.header-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.badge-admin{background:#e74c3c;color:white;padding:3px 10px;
+  border-radius:20px;font-size:.72rem;font-weight:700;}
+.badge-user{background:#27ae60;color:white;padding:3px 10px;
+  border-radius:20px;font-size:.72rem;font-weight:700;}
+.btn-logout{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);
+  color:white;padding:5px 11px;border-radius:8px;cursor:pointer;
+  font-family:inherit;font-size:.79rem;}
 
 /* ── 로그인 ── */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#eaf2ff,#d6eaf8);padding:20px;}
-.login-box{background:white;border-radius:20px;padding:40px 36px;width:100%;max-width:460px;box-shadow:0 10px 40px rgba(0,0,0,.12);text-align:center;}
-.city-logo{width:72px;height:72px;background:linear-gradient(135deg,#1a5276,#2e86c1);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:1.9rem;}
-.login-box h2{font-size:1.25rem;color:#1a5276;margin-bottom:4px;}
-.login-box>p{color:#718096;font-size:.82rem;margin-bottom:22px;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;
+  justify-content:center;background:linear-gradient(135deg,#eaf2ff,#d6eaf8);
+  padding:18px;}
+.login-box{background:white;border-radius:20px;padding:36px 30px;
+  width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,.13);
+  text-align:center;}
+.city-logo{width:70px;height:70px;
+  background:linear-gradient(135deg,#1a5276,#2e86c1);
+  border-radius:50%;margin:0 auto 15px;display:flex;
+  align-items:center;justify-content:center;font-size:1.8rem;}
+.login-box h2{font-size:1.2rem;color:#1a5276;margin-bottom:4px;}
+.login-box>p{color:#718096;font-size:.81rem;margin-bottom:20px;}
 
 /* 로그인 탭 */
-.login-tabs{display:flex;border-radius:10px;overflow:hidden;margin-bottom:20px;border:2px solid #e2e8f0;}
-.login-tab{flex:1;padding:10px;border:none;background:white;cursor:pointer;font-size:.87rem;font-family:inherit;transition:all .2s;}
+.login-tabs{display:flex;border-radius:10px;overflow:hidden;
+  margin-bottom:18px;border:2px solid #e2e8f0;}
+.login-tab{flex:1;padding:10px;border:none;background:white;
+  cursor:pointer;font-size:.86rem;font-family:inherit;
+  transition:all .2s;-webkit-appearance:none;}
 .login-tab.active{background:#1a5276;color:white;font-weight:700;}
 
 /* 업체 목록 */
-.company-list{display:flex;flex-direction:column;gap:8px;margin:10px 0;max-height:230px;overflow-y:auto;}
-.company-item{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all .2s;text-align:left;font-family:inherit;background:white;width:100%;}
-.company-item:hover{border-color:#2e86c1;background:#eaf4fb;}
-.company-item-name{font-weight:700;color:#1a5276;font-size:.91rem;}
-.company-item-sub{font-size:.74rem;color:#718096;margin-top:2px;}
+.company-list{display:flex;flex-direction:column;gap:7px;
+  margin:9px 0;max-height:210px;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;}
+.company-item{display:flex;align-items:center;justify-content:space-between;
+  padding:11px 13px;border:2px solid #e2e8f0;border-radius:10px;
+  cursor:pointer;transition:all .2s;text-align:left;
+  font-family:inherit;background:white;width:100%;
+  -webkit-appearance:none;}
+.company-item:active{background:#eaf4fb;border-color:#2e86c1;}
+.company-item-name{font-weight:700;color:#1a5276;font-size:.89rem;}
+.company-item-sub{font-size:.72rem;color:#718096;margin-top:2px;}
 
-/* 관리자 설정 박스 */
-.admin-setup-box{background:#fff8e1;border:2px solid #f39c12;border-radius:14px;padding:18px;margin-bottom:14px;text-align:left;}
-.admin-setup-box h3{color:#d35400;font-size:.93rem;margin-bottom:10px;}
-.pw-strength{height:6px;border-radius:3px;background:#e2e8f0;margin-top:5px;overflow:hidden;}
+/* 관리자 설정 */
+.admin-setup-box{background:#fff8e1;border:2px solid #f39c12;
+  border-radius:14px;padding:16px;margin-bottom:13px;text-align:left;}
+.admin-setup-box h3{color:#d35400;font-size:.9rem;margin-bottom:9px;}
+.pw-strength{height:6px;border-radius:3px;background:#e2e8f0;
+  margin-top:5px;overflow:hidden;}
 .pw-strength-bar{height:100%;border-radius:3px;transition:width .3s,background .3s;width:0%;}
-.pw-expire-banner{background:linear-gradient(135deg,#e74c3c,#c0392b);color:white;padding:11px 16px;border-radius:12px;margin-bottom:14px;font-size:.86rem;display:flex;align-items:center;gap:9px;}
+.pw-expire-banner{background:linear-gradient(135deg,#e74c3c,#c0392b);
+  color:white;padding:10px 14px;border-radius:12px;
+  margin-bottom:13px;font-size:.84rem;
+  display:flex;align-items:center;gap:8px;}
 
-/* 폼 공통 */
-.form-group{margin-bottom:13px;text-align:left;}
-.form-group label{display:block;font-size:.8rem;color:#4a5568;margin-bottom:5px;font-weight:600;}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 13px;border:2px solid #e2e8f0;border-radius:10px;font-size:.89rem;font-family:inherit;transition:border-color .2s;outline:none;}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#2e86c1;}
-.form-group textarea{resize:vertical;min-height:72px;}
-.pw-hint{font-size:.75rem;color:#718096;margin-top:4px;}
+/* 폼 */
+.form-group{margin-bottom:12px;text-align:left;}
+.form-group label{display:block;font-size:.79rem;color:#4a5568;
+  margin-bottom:4px;font-weight:600;}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:10px 12px;border:2px solid #e2e8f0;
+  border-radius:10px;font-size:.88rem;font-family:inherit;
+  transition:border-color .2s;outline:none;
+  -webkit-appearance:none;appearance:none;
+  background:white;}
+.form-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23718096' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  padding-right:32px;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{
+  border-color:#2e86c1;}
+.form-group textarea{resize:vertical;min-height:70px;
+  -webkit-appearance:none;}
+.pw-hint{font-size:.74rem;color:#718096;margin-top:3px;}
 .pw-hint.ok{color:#27ae60;}.pw-hint.err{color:#e74c3c;}
-.btn-primary{width:100%;padding:12px;background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;border:none;border-radius:10px;font-size:.93rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s;margin-top:5px;}
-.btn-primary:hover{opacity:.9;}
-.login-hint{margin-top:12px;font-size:.75rem;color:#a0aec0;}
+.btn-primary{width:100%;padding:12px;
+  background:linear-gradient(135deg,#1a5276,#2e86c1);
+  color:white;border:none;border-radius:10px;
+  font-size:.92rem;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:opacity .2s;
+  margin-top:5px;-webkit-appearance:none;}
+.btn-primary:active{opacity:.85;}
+.login-hint{margin-top:11px;font-size:.74rem;color:#a0aec0;}
 
 /* ── 메인 ── */
-.main-wrap{max-width:1400px;margin:0 auto;padding:20px 16px;}
-.tab-nav{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
-.tab-btn{padding:9px 17px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;font-size:.86rem;font-weight:600;font-family:inherit;color:#4a5568;transition:all .2s;}
-.tab-btn:hover:not(.active){border-color:#2e86c1;color:#2e86c1;}
+.main-wrap{max-width:1400px;margin:0 auto;padding:18px 14px;}
+.tab-nav{display:flex;gap:5px;margin-bottom:18px;
+  flex-wrap:wrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding-bottom:4px;}
+.tab-btn{padding:8px 15px;border:2px solid #e2e8f0;border-radius:10px;
+  background:white;cursor:pointer;font-size:.84rem;font-weight:600;
+  font-family:inherit;color:#4a5568;transition:all .2s;
+  white-space:nowrap;-webkit-appearance:none;flex-shrink:0;}
+.tab-btn:active{opacity:.8;}
 .tab-btn.active{background:#1a5276;color:white;border-color:#1a5276;}
 
-.card{background:white;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.07);margin-bottom:16px;}
-.card-title{font-size:1.03rem;font-weight:700;color:#1a5276;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+/* 카드 */
+.card{background:white;border-radius:16px;padding:18px;
+  box-shadow:0 2px 12px rgba(0,0,0,.07);margin-bottom:15px;}
+.card-title{font-size:1rem;font-weight:700;color:#1a5276;
+  margin-bottom:15px;display:flex;align-items:center;
+  gap:7px;flex-wrap:wrap;}
 
 /* 통계 */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:20px;}
-.stat-card{background:white;border-radius:14px;padding:16px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.07);border-top:4px solid #2e86c1;transition:transform .2s;}
-.stat-card:hover{transform:translateY(-3px);}
-.stat-card.danger{border-top-color:#e74c3c;}.stat-card.warning{border-top-color:#f39c12;}
-.stat-card.success{border-top-color:#27ae60;}.stat-card.info{border-top-color:#8e44ad;}
-.stat-num{font-size:1.85rem;font-weight:800;color:#1a5276;line-height:1;}
-.stat-label{font-size:.77rem;color:#718096;margin-top:5px;}
+.stats-grid{display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:11px;margin-bottom:18px;}
+.stat-card{background:white;border-radius:13px;padding:15px;
+  text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.07);
+  border-top:4px solid #2e86c1;}
+.stat-card.danger{border-top-color:#e74c3c;}
+.stat-card.warning{border-top-color:#f39c12;}
+.stat-card.success{border-top-color:#27ae60;}
+.stat-card.info{border-top-color:#8e44ad;}
+.stat-num{font-size:1.8rem;font-weight:800;color:#1a5276;line-height:1;}
+.stat-label{font-size:.75rem;color:#718096;margin-top:4px;}
 
 /* 폼 그리드 */
-.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:13px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;}
 .form-grid .form-group{margin-bottom:0;}
 .form-full{grid-column:1/-1;}
-.floor-input-row{display:flex;gap:8px;align-items:center;}
-.floor-input-row input{flex:1;text-align:center;}
-.floor-input-row span{font-size:.81rem;color:#718096;white-space:nowrap;}
 
 /* 버튼 */
-.btn-submit{background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;border:none;padding:10px 26px;border-radius:10px;font-size:.9rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .2s;}
-.btn-submit:hover{opacity:.9;}
-.btn-danger{background:#e74c3c;color:white;border:none;padding:5px 11px;border-radius:7px;font-size:.76rem;cursor:pointer;font-family:inherit;}
-.btn-success{background:#27ae60;color:white;border:none;padding:5px 11px;border-radius:7px;font-size:.76rem;cursor:pointer;font-family:inherit;margin-right:3px;}
-.btn-info{background:#2e86c1;color:white;border:none;padding:5px 11px;border-radius:7px;font-size:.76rem;cursor:pointer;font-family:inherit;margin-right:3px;}
-.btn-warning{background:#f39c12;color:white;border:none;padding:5px 11px;border-radius:7px;font-size:.76rem;cursor:pointer;font-family:inherit;margin-right:3px;}
-.insp-add-btn{background:linear-gradient(135deg,#27ae60,#1e8449);color:white;border:none;padding:5px 11px;border-radius:7px;font-size:.76rem;font-weight:700;cursor:pointer;font-family:inherit;margin-right:3px;}
+.btn-submit{background:linear-gradient(135deg,#1a5276,#2e86c1);
+  color:white;border:none;padding:10px 24px;border-radius:10px;
+  font-size:.88rem;font-weight:700;cursor:pointer;
+  font-family:inherit;-webkit-appearance:none;}
+.btn-danger{background:#e74c3c;color:white;border:none;
+  padding:5px 10px;border-radius:7px;font-size:.75rem;
+  cursor:pointer;font-family:inherit;-webkit-appearance:none;}
+.btn-success{background:#27ae60;color:white;border:none;
+  padding:5px 10px;border-radius:7px;font-size:.75rem;
+  cursor:pointer;font-family:inherit;margin-right:3px;-webkit-appearance:none;}
+.btn-info{background:#2e86c1;color:white;border:none;
+  padding:5px 10px;border-radius:7px;font-size:.75rem;
+  cursor:pointer;font-family:inherit;margin-right:3px;-webkit-appearance:none;}
+.btn-warning{background:#f39c12;color:white;border:none;
+  padding:5px 10px;border-radius:7px;font-size:.75rem;
+  cursor:pointer;font-family:inherit;margin-right:3px;-webkit-appearance:none;}
+.insp-add-btn{background:linear-gradient(135deg,#27ae60,#1e8449);
+  color:white;border:none;padding:5px 10px;border-radius:7px;
+  font-size:.75rem;font-weight:700;cursor:pointer;
+  font-family:inherit;margin-right:3px;-webkit-appearance:none;}
 
 /* 필터 */
-.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:13px;padding:13px;background:#f7fafc;border-radius:12px;border:1px solid #e2e8f0;}
-.filter-bar select,.filter-bar input{padding:7px 10px;border:2px solid #e2e8f0;border-radius:8px;font-size:.82rem;font-family:inherit;outline:none;transition:border-color .2s;}
-.filter-bar select:focus,.filter-bar input:focus{border-color:#2e86c1;}
-.btn-export{padding:7px 13px;background:#27ae60;color:white;border:none;border-radius:8px;font-size:.82rem;cursor:pointer;font-family:inherit;margin-left:auto;}
+.filter-bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;
+  margin-bottom:12px;padding:12px;background:#f7fafc;
+  border-radius:12px;border:1px solid #e2e8f0;}
+.filter-bar select,.filter-bar input{
+  padding:7px 10px;border:2px solid #e2e8f0;border-radius:8px;
+  font-size:.81rem;font-family:inherit;outline:none;
+  -webkit-appearance:none;background:white;}
+.btn-export{padding:7px 12px;background:#27ae60;color:white;
+  border:none;border-radius:8px;font-size:.81rem;
+  cursor:pointer;font-family:inherit;margin-left:auto;
+  -webkit-appearance:none;}
 
 /* 테이블 */
-.table-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:650px;}
-th{background:#1a5276;color:white;padding:10px 8px;text-align:center;font-weight:600;white-space:nowrap;}
-td{padding:8px;border-bottom:1px solid #e2e8f0;text-align:center;vertical-align:middle;}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:600px;}
+th{background:#1a5276;color:white;padding:10px 8px;
+  text-align:center;font-weight:600;white-space:nowrap;}
+td{padding:8px;border-bottom:1px solid #e2e8f0;
+  text-align:center;vertical-align:middle;}
 tr:hover td{background:#ebf5fb;}
 tr:last-child td{border-bottom:none;}
 .insp-table th{background:#27ae60;}
-.insp-row-odd td{background:#f0fff4;}.insp-row-even td{background:#fff;}
 
-/* 위험도 순위 */
-.rank-top10 td{background:#fff0f0!important;}.rank-top10 td:first-child{border-left:4px solid #e74c3c;}
-.rank-top30 td{background:#fff8f0!important;}.rank-top30 td:first-child{border-left:4px solid #f39c12;}
-.rank-badge{display:inline-block;width:27px;height:27px;border-radius:50%;font-size:.77rem;font-weight:800;line-height:27px;text-align:center;}
-.rank-gold{background:#e74c3c;color:white;}.rank-top{background:#f39c12;color:white;}.rank-norm{background:#bdc3c7;color:white;}
+/* 위험도 */
+.rank-top10 td{background:#fff0f0!important;}
+.rank-top10 td:first-child{border-left:4px solid #e74c3c;}
+.rank-top30 td{background:#fff8f0!important;}
+.rank-top30 td:first-child{border-left:4px solid #f39c12;}
+.rank-badge{display:inline-block;width:26px;height:26px;
+  border-radius:50%;font-size:.75rem;font-weight:800;
+  line-height:26px;text-align:center;}
+.rank-gold{background:#e74c3c;color:white;}
+.rank-top{background:#f39c12;color:white;}
+.rank-norm{background:#bdc3c7;color:white;}
 
 /* 공정률 바 */
-.progress-wrap{width:100%;background:#e2e8f0;border-radius:20px;height:12px;overflow:hidden;min-width:65px;}
+.progress-wrap{width:100%;background:#e2e8f0;border-radius:20px;
+  height:11px;overflow:hidden;min-width:60px;}
 .progress-bar{height:100%;border-radius:20px;transition:width .5s;}
-.progress-low{background:#e74c3c;}.progress-mid{background:#f39c12;}
-.progress-high{background:#27ae60;}.progress-done{background:#2e86c1;}.progress-zero{background:#bdc3c7;width:2px!important;}
+.progress-low{background:#e74c3c;}
+.progress-mid{background:#f39c12;}
+.progress-high{background:#27ae60;}
+.progress-done{background:#2e86c1;}
+.progress-zero{background:#bdc3c7;width:2px!important;}
 
 /* 배지 */
-.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;}
-.badge-red{background:#fde8e8;color:#c0392b;}.badge-orange{background:#fef3e2;color:#d35400;}
-.badge-green{background:#e8f8f0;color:#1e8449;}.badge-blue{background:#eaf4fb;color:#1a5276;}
-.badge-gray{background:#f0f0f0;color:#555;}.badge-purple{background:#f5eef8;color:#7d3c98;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;
+  font-size:.71rem;font-weight:700;white-space:nowrap;}
+.badge-red{background:#fde8e8;color:#c0392b;}
+.badge-orange{background:#fef3e2;color:#d35400;}
+.badge-green{background:#e8f8f0;color:#1e8449;}
+.badge-blue{background:#eaf4fb;color:#1a5276;}
+.badge-gray{background:#f0f0f0;color:#555;}
+.badge-purple{background:#f5eef8;color:#7d3c98;}
 
 /* 알림 */
-.alert-banner{padding:10px 15px;border-radius:10px;margin-bottom:9px;font-size:.85rem;display:flex;align-items:center;gap:9px;}
+.alert-banner{padding:10px 14px;border-radius:10px;
+  margin-bottom:8px;font-size:.83rem;
+  display:flex;align-items:center;gap:8px;}
 .alert-new{background:#e8f8f0;border-left:4px solid #27ae60;color:#1e8449;}
 .alert-warn{background:#fef3e2;border-left:4px solid #f39c12;color:#d35400;}
 .alert-danger{background:#fde8e8;border-left:4px solid #e74c3c;color:#c0392b;}
 
 /* 슬라이더 */
 .slider-wrap{display:flex;align-items:center;gap:10px;}
-input[type="range"]{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:#e2e8f0;outline:none;}
-input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#2e86c1;cursor:pointer;}
-.slider-val{font-size:1.03rem;font-weight:700;color:#1a5276;min-width:42px;}
+input[type="range"]{flex:1;-webkit-appearance:none;
+  height:6px;border-radius:3px;background:#e2e8f0;outline:none;}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;
+  border-radius:50%;background:#2e86c1;cursor:pointer;}
+.slider-val{font-size:1rem;font-weight:700;color:#1a5276;min-width:42px;}
 
 /* 모달 */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:14px;}
+.modal-overlay{display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.5);z-index:200;
+  align-items:center;justify-content:center;padding:12px;
+  -webkit-overflow-scrolling:touch;}
 .modal-overlay.show{display:flex;}
-.modal-box{background:white;border-radius:20px;padding:28px;width:100%;max-width:620px;max-height:87vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
-.modal-title{font-size:1.08rem;font-weight:700;color:#1a5276;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
-.modal-close{background:none;border:none;font-size:1.5rem;cursor:pointer;color:#718096;line-height:1;}
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:13px;}
-.detail-item label{font-size:.75rem;color:#718096;display:block;margin-bottom:3px;}
-.detail-item span{font-size:.87rem;font-weight:600;color:#2d3748;}
-.history-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f0f4f8;}
-.history-dot{width:8px;height:8px;border-radius:50%;background:#2e86c1;margin-top:5px;flex-shrink:0;}
-.history-content{flex:1;font-size:.84rem;}
+.modal-box{background:white;border-radius:20px;padding:24px;
+  width:100%;max-width:600px;max-height:88vh;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.modal-title{font-size:1.05rem;font-weight:700;color:#1a5276;
+  margin-bottom:15px;display:flex;
+  justify-content:space-between;align-items:center;}
+.modal-close{background:none;border:none;font-size:1.5rem;
+  cursor:pointer;color:#718096;line-height:1;padding:4px;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;
+  gap:10px;margin-bottom:12px;}
+.detail-item label{font-size:.73rem;color:#718096;
+  display:block;margin-bottom:2px;}
+.detail-item span{font-size:.86rem;font-weight:600;color:#2d3748;}
+.history-item{display:flex;align-items:flex-start;
+  gap:9px;padding:8px 0;border-bottom:1px solid #f0f4f8;}
+.history-dot{width:8px;height:8px;border-radius:50%;
+  background:#2e86c1;margin-top:5px;flex-shrink:0;}
+.history-content{flex:1;font-size:.82rem;}
 
 /* 차트 */
-.chart-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:13px;margin-bottom:16px;}
-.mini-chart{background:white;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.07);}
-.mini-chart-title{font-size:.87rem;font-weight:700;color:#1a5276;margin-bottom:11px;}
+.chart-row{display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:12px;margin-bottom:15px;}
+.mini-chart{background:white;border-radius:13px;padding:15px;
+  box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.mini-chart-title{font-size:.85rem;font-weight:700;
+  color:#1a5276;margin-bottom:10px;}
 .bar-chart-item{margin-bottom:8px;}
-.bar-chart-label{display:flex;justify-content:space-between;font-size:.77rem;color:#4a5568;margin-bottom:3px;}
-.bar-chart-bar{height:8px;border-radius:5px;background:linear-gradient(90deg,#2e86c1,#1a5276);}
+.bar-chart-label{display:flex;justify-content:space-between;
+  font-size:.76rem;color:#4a5568;margin-bottom:3px;}
+.bar-chart-bar{height:8px;border-radius:5px;
+  background:linear-gradient(90deg,#2e86c1,#1a5276);}
+
+/* 내 공사장 카드 */
+.site-card{border:2px solid #e2e8f0;border-radius:14px;
+  padding:15px;margin-bottom:12px;transition:border-color .2s;}
+.site-card:active{border-color:#2e86c1;}
+.site-card-header{display:flex;align-items:flex-start;
+  justify-content:space-between;margin-bottom:10px;
+  flex-wrap:wrap;gap:6px;}
+.site-card-title{font-weight:700;color:#1a5276;font-size:.9rem;}
+.site-card-sub{font-size:.75rem;color:#718096;margin-top:2px;}
+.site-card-actions{display:flex;gap:4px;flex-wrap:wrap;}
+.site-card-info{display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
+  gap:6px;margin-top:8px;}
+.site-info-item{background:#f7fafc;border-radius:8px;padding:6px 10px;}
+.site-info-label{font-size:.69rem;color:#718096;margin-bottom:2px;}
+.site-info-value{font-size:.82rem;font-weight:700;color:#2d3748;}
 
 /* 비밀번호 관리 */
 .pw-table th{background:#7d3c98;}
-.pw-reveal{cursor:pointer;color:#2e86c1;text-decoration:underline;font-size:.79rem;}
+.pw-reveal{cursor:pointer;color:#2e86c1;
+  text-decoration:underline;font-size:.78rem;}
 
 /* 보안 */
-.sec-box{background:#f7fafc;border-radius:12px;padding:15px;margin-bottom:16px;}
-
-/* 내 공사장 카드 */
-.site-card{border:2px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:13px;transition:border-color .2s;}
-.site-card:hover{border-color:#2e86c1;}
-.site-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:11px;flex-wrap:wrap;gap:7px;}
-.site-card-title{font-weight:700;color:#1a5276;font-size:.93rem;}
-.site-card-sub{font-size:.77rem;color:#718096;margin-top:2px;}
-.site-card-actions{display:flex;gap:5px;flex-wrap:wrap;}
-.site-card-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:7px;margin-top:9px;}
-.site-info-item{background:#f7fafc;border-radius:8px;padding:7px 11px;}
-.site-info-label{font-size:.71rem;color:#718096;margin-bottom:2px;}
-.site-info-value{font-size:.84rem;font-weight:700;color:#2d3748;}
+.sec-box{background:#f7fafc;border-radius:12px;
+  padding:14px;margin-bottom:14px;}
 
 /* 시즌 팝업 */
-.season-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;padding:14px;}
+.season-popup{display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.6);z-index:500;
+  align-items:center;justify-content:center;padding:14px;}
 .season-popup.show{display:flex;}
-.season-box{background:white;border-radius:22px;padding:32px 28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
-.season-icon{font-size:3.2rem;margin-bottom:12px;}
-.season-title{font-size:1.2rem;font-weight:800;margin-bottom:9px;}
-.season-body{font-size:.87rem;line-height:1.9;color:#4a5568;margin-bottom:20px;text-align:left;background:#f7fafc;border-radius:12px;padding:14px;}
-.season-badge{display:inline-block;padding:4px 13px;border-radius:20px;font-size:.77rem;font-weight:700;margin-bottom:12px;}
-.season-close{background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;border:none;padding:11px 30px;border-radius:10px;font-size:.93rem;font-weight:700;cursor:pointer;font-family:inherit;}
+.season-box{background:white;border-radius:22px;
+  padding:28px 24px;max-width:460px;width:100%;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;
+  max-height:85vh;overflow-y:auto;}
+.season-icon{font-size:3rem;margin-bottom:10px;}
+.season-title{font-size:1.1rem;font-weight:800;margin-bottom:8px;}
+.season-body{font-size:.85rem;line-height:1.9;color:#4a5568;
+  margin-bottom:18px;text-align:left;
+  background:#f7fafc;border-radius:12px;padding:13px;}
+.season-badge{display:inline-block;padding:4px 12px;
+  border-radius:20px;font-size:.76rem;font-weight:700;
+  margin-bottom:11px;}
+.season-close{background:linear-gradient(135deg,#1a5276,#2e86c1);
+  color:white;border:none;padding:11px 28px;border-radius:10px;
+  font-size:.91rem;font-weight:700;cursor:pointer;
+  font-family:inherit;-webkit-appearance:none;}
 
 /* 토스트 */
-.toast{position:fixed;bottom:26px;right:26px;background:#1a5276;color:white;padding:12px 18px;border-radius:12px;font-size:.87rem;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:300;transform:translateY(100px);transition:transform .3s;max-width:310px;word-break:keep-all;}
+.toast{position:fixed;bottom:24px;right:16px;left:16px;
+  background:#1a5276;color:white;padding:12px 16px;
+  border-radius:12px;font-size:.86rem;font-weight:600;
+  box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:400;
+  transform:translateY(120px);transition:transform .3s;
+  text-align:center;word-break:keep-all;}
 .toast.show{transform:translateY(0);}
-.empty-state{text-align:center;padding:36px;color:#a0aec0;font-size:.87rem;}
-.empty-state .icon{font-size:2.6rem;margin-bottom:8px;}
 
-@media(max-width:768px){
-  header{padding:11px 13px;}header h1{font-size:.93rem;}
-  .main-wrap{padding:13px 9px;}.detail-grid{grid-template-columns:1fr;}
-  .login-box{padding:28px 18px;}.form-grid{grid-template-columns:1fr;}
+.empty-state{text-align:center;padding:32px;
+  color:#a0aec0;font-size:.86rem;}
+.empty-state .icon{font-size:2.5rem;margin-bottom:7px;}
+
+@media(min-width:600px){
+  .toast{left:auto;max-width:320px;}
+}
+@media(max-width:480px){
+  .login-box{padding:28px 18px;}
+  .detail-grid{grid-template-columns:1fr;}
+  .form-grid{grid-template-columns:1fr;}
+  header h1{font-size:.88rem;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
 }
 </style>
 </head>
 <body>
 
-<!-- 로딩 -->
+<!-- ── 로딩 오버레이 ── -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Firebase 연결 중...</div>
+  <div class="loading-sub" id="loadingSub">잠시만 기다려 주세요</div>
+  <button id="retryBtn" onclick="retryInit()">🔄 다시 시도</button>
 </div>
 
-<!-- 로그인 -->
+<!-- ── 로그인 화면 ── -->
 <div id="loginPage" class="login-wrap" style="display:none">
   <div class="login-box">
     <div class="city-logo">🏗️</div>
     <h2>화성시 공사현장<br>공정률 관리 시스템</h2>
     <p>건축 공사 현황을 실시간으로 등록·관리합니다</p>
 
-    <!-- ★ 탭 버튼 — onclick으로 직접 호출 -->
     <div class="login-tabs">
       <button type="button" class="login-tab active" id="tabBtnContractor"
         onclick="switchLoginType('contractor')">🔨 시공업체</button>
@@ -236,101 +401,127 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
 
     <!-- 시공업체 영역 -->
     <div id="contractorArea">
-      <!-- View A: 업체 목록 -->
       <div id="loginViewA">
-        <p style="font-size:.81rem;color:#4a5568;margin-bottom:9px;text-align:left;font-weight:600">등록된 업체를 선택하거나 신규 등록하세요</p>
+        <p style="font-size:.8rem;color:#4a5568;margin-bottom:8px;
+          text-align:left;font-weight:600">업체를 선택하거나 신규 등록하세요</p>
         <div class="company-list" id="companyList">
-          <div class="empty-state" style="padding:14px"><div class="icon">⏳</div>업체 목록 불러오는 중...</div>
+          <div class="empty-state" style="padding:12px">
+            <div class="icon">⏳</div>업체 목록 불러오는 중...</div>
         </div>
-        <button type="button" class="btn-primary" style="margin-top:9px" onclick="showView('loginViewC')">➕ 신규 업체 등록</button>
+        <button type="button" class="btn-primary" style="margin-top:8px"
+          onclick="showView('loginViewC')">➕ 신규 업체 등록</button>
         <p class="login-hint">※ 처음 이용하시면 [신규 업체 등록]을 눌러주세요</p>
       </div>
 
-      <!-- View B: 비밀번호 입력 -->
       <div id="loginViewB" style="display:none">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;text-align:left">
-          <div style="width:42px;height:42px;background:#eaf4fb;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">🏢</div>
+        <div style="display:flex;align-items:center;gap:9px;
+          margin-bottom:13px;text-align:left">
+          <div style="width:40px;height:40px;background:#eaf4fb;
+            border-radius:50%;display:flex;align-items:center;
+            justify-content:center;font-size:1.15rem;flex-shrink:0">🏢</div>
           <div>
-            <div style="font-weight:700;font-size:.98rem;color:#1a5276" id="selectedCompanyName"></div>
-            <div style="font-size:.75rem;color:#718096" id="selectedCompanySub"></div>
+            <div style="font-weight:700;font-size:.95rem;color:#1a5276"
+              id="selectedCompanyName"></div>
+            <div style="font-size:.73rem;color:#718096"
+              id="selectedCompanySub"></div>
           </div>
         </div>
         <div class="form-group">
-          <label>비밀번호 (영문+숫자 조합)</label>
+          <label>비밀번호</label>
           <input type="password" id="c_pw" placeholder="설정한 비밀번호 입력"
-            onkeydown="if(event.key==='Enter') loginContractor()">
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')loginContractor()">
         </div>
-        <button type="button" class="btn-primary" onclick="loginContractor()">🔑 로그인</button>
-        <p style="margin-top:9px;font-size:.79rem">
-          <span style="color:#2e86c1;cursor:pointer;text-decoration:underline" onclick="showListView()">← 업체 목록으로</span>
+        <button type="button" class="btn-primary"
+          onclick="loginContractor()">🔑 로그인</button>
+        <p style="margin-top:8px;font-size:.78rem">
+          <span style="color:#2e86c1;cursor:pointer;text-decoration:underline"
+            onclick="showListView()">← 업체 목록으로</span>
         </p>
       </div>
 
-      <!-- View C: 신규 업체 등록 -->
       <div id="loginViewC" style="display:none">
-        <p style="font-size:.81rem;color:#e74c3c;margin-bottom:11px;text-align:left">
-          ⚠️ 업체명과 비밀번호로 계정이 생성됩니다. 비밀번호를 기억해두세요.
-        </p>
+        <p style="font-size:.8rem;color:#e74c3c;margin-bottom:10px;text-align:left">
+          ⚠️ 업체명과 비밀번호로 계정이 생성됩니다.</p>
         <div class="form-group">
           <label>업체명 *</label>
-          <input type="text" id="c_newName" placeholder="예: (주)한빛건설">
+          <input type="text" id="c_newName" placeholder="예: (주)한빛건설"
+            autocomplete="organization">
         </div>
         <div class="form-group">
           <label>비밀번호 * (영문+숫자 6자 이상)</label>
-          <input type="password" id="c_newPw1" placeholder="영문+숫자 조합 6자 이상" oninput="checkNewPw()">
-          <div class="pw-hint" id="newPwHint">영문+숫자 조합 6자 이상 입력해주세요</div>
+          <input type="password" id="c_newPw1"
+            placeholder="영문+숫자 조합 6자 이상"
+            autocomplete="new-password"
+            oninput="checkNewPw()">
+          <div class="pw-hint" id="newPwHint">영문+숫자 조합 6자 이상</div>
         </div>
         <div class="form-group">
           <label>비밀번호 확인 *</label>
-          <input type="password" id="c_newPw2" placeholder="비밀번호 재입력" oninput="checkNewPwMatch()">
+          <input type="password" id="c_newPw2"
+            placeholder="비밀번호 재입력"
+            autocomplete="new-password"
+            oninput="checkNewPwMatch()">
           <div class="pw-hint" id="newPwMatchHint"></div>
         </div>
-        <button type="button" class="btn-primary" onclick="createCompany()">✅ 업체 등록 및 로그인</button>
-        <p style="margin-top:9px;font-size:.79rem">
-          <span style="color:#2e86c1;cursor:pointer;text-decoration:underline" onclick="showListView()">← 목록으로 돌아가기</span>
+        <button type="button" class="btn-primary"
+          onclick="createCompany()">✅ 업체 등록 및 로그인</button>
+        <p style="margin-top:8px;font-size:.78rem">
+          <span style="color:#2e86c1;cursor:pointer;text-decoration:underline"
+            onclick="showListView()">← 목록으로</span>
         </p>
       </div>
     </div>
 
     <!-- 관리자 영역 -->
     <div id="adminArea" style="display:none">
-      <!-- 최초 설정 -->
       <div id="adminSetupArea" style="display:none">
         <div class="admin-setup-box">
           <h3>🔐 관리자 계정 최초 설정</h3>
-          <p style="font-size:.81rem;color:#718096;margin-bottom:11px">처음 한 번만 설정 가능합니다.</p>
           <div class="form-group">
             <label>관리자 아이디 (4자 이상)</label>
-            <input type="text" id="setupAdminId" placeholder="예: admin2025">
+            <input type="text" id="setupAdminId"
+              placeholder="예: admin2025" autocomplete="username">
           </div>
           <div class="form-group">
             <label>비밀번호 (영문+숫자 8자 이상)</label>
-            <input type="password" id="setupAdminPw1" oninput="checkAdminPwStrength()">
-            <div class="pw-strength"><div class="pw-strength-bar" id="adminPwStrengthBar"></div></div>
+            <input type="password" id="setupAdminPw1"
+              autocomplete="new-password"
+              oninput="checkAdminPwStrength()">
+            <div class="pw-strength">
+              <div class="pw-strength-bar" id="adminPwStrengthBar"></div>
+            </div>
             <div class="pw-hint" id="adminPwHint">영문+숫자 8자 이상</div>
           </div>
           <div class="form-group">
             <label>비밀번호 확인</label>
-            <input type="password" id="setupAdminPw2" oninput="checkAdminPwMatch()">
+            <input type="password" id="setupAdminPw2"
+              autocomplete="new-password"
+              oninput="checkAdminPwMatch()">
             <div class="pw-hint" id="adminPwMatchHint"></div>
           </div>
-          <button type="button" class="btn-primary" onclick="setupAdmin()">✅ 관리자 계정 생성</button>
+          <button type="button" class="btn-primary"
+            onclick="setupAdmin()">✅ 관리자 계정 생성</button>
         </div>
       </div>
-      <!-- 로그인 -->
       <div id="adminLoginArea">
         <div id="adminPwExpireWarn" style="display:none">
-          <div class="pw-expire-banner">🔒 비밀번호 변경 권장 기간입니다 (분기 1회).</div>
+          <div class="pw-expire-banner">
+            🔒 비밀번호 변경 권장 기간입니다.</div>
         </div>
         <div class="form-group">
           <label>관리자 ID</label>
-          <input type="text" id="adminId" placeholder="관리자 아이디">
+          <input type="text" id="adminId"
+            placeholder="관리자 아이디" autocomplete="username">
         </div>
         <div class="form-group">
           <label>비밀번호</label>
-          <input type="password" id="adminPw" onkeydown="if(event.key==='Enter') loginAdmin()">
+          <input type="password" id="adminPw"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter')loginAdmin()">
         </div>
-        <button type="button" class="btn-primary" onclick="loginAdmin()">🔑 관리자 로그인</button>
+        <button type="button" class="btn-primary"
+          onclick="loginAdmin()">🔑 관리자 로그인</button>
         <p class="login-hint">※ 화성시 건축과 담당자 전용</p>
       </div>
     </div>
@@ -338,17 +529,24 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
   </div>
 </div>
 
-<!-- 메인 앱 -->
+<!-- ── 메인 앱 ── -->
 <div id="mainApp" style="display:none">
   <header>
-    <div style="display:flex;align-items:center;gap:11px">
-      <div style="width:36px;height:36px;background:white;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.25rem">🏗️</div>
-      <div><h1>화성시 공사현장 공정률 관리 시스템</h1><p id="headerSubtitle"></p></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;background:white;border-radius:8px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:1.2rem;flex-shrink:0">🏗️</div>
+      <div>
+        <h1>화성시 공사현장 공정률 관리</h1>
+        <p id="headerSubtitle"></p>
+      </div>
     </div>
     <div class="header-right">
       <span id="userBadge" class="badge-user">시공업체</span>
-      <span id="userNameDisplay" style="font-size:.82rem;opacity:.9"></span>
-      <button type="button" class="btn-logout" onclick="logout()">로그아웃</button>
+      <span id="userNameDisplay"
+        style="font-size:.8rem;opacity:.9;display:none"></span>
+      <button type="button" class="btn-logout"
+        onclick="logout()">로그아웃</button>
     </div>
   </header>
   <div class="main-wrap">
@@ -362,7 +560,8 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
   <div class="modal-box">
     <div class="modal-title">
       <span>🏗️ 공사장 상세 정보</span>
-      <button type="button" class="modal-close" onclick="closeModal('detailModal')">✕</button>
+      <button type="button" class="modal-close"
+        onclick="closeModal('detailModal')">✕</button>
     </div>
     <div id="detailContent"></div>
   </div>
@@ -373,18 +572,20 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
   <div class="modal-box">
     <div class="modal-title">
       <span>📊 공정률 업데이트</span>
-      <button type="button" class="modal-close" onclick="closeModal('updateModal')">✕</button>
+      <button type="button" class="modal-close"
+        onclick="closeModal('updateModal')">✕</button>
     </div>
     <div id="updateContent"></div>
   </div>
 </div>
 
-<!-- 점검 추가 모달 -->
+<!-- 점검 모달 -->
 <div class="modal-overlay" id="inspModal">
   <div class="modal-box">
     <div class="modal-title">
       <span>🔍 점검 결과 등록</span>
-      <button type="button" class="modal-close" onclick="closeModal('inspModal')">✕</button>
+      <button type="button" class="modal-close"
+        onclick="closeModal('inspModal')">✕</button>
     </div>
     <div id="inspContent"></div>
   </div>
@@ -397,7 +598,8 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
     <span class="season-badge" id="seasonBadge"></span>
     <div class="season-title" id="seasonTitle"></div>
     <div class="season-body" id="seasonBody"></div>
-    <button type="button" class="season-close" onclick="closeSeasonPopup()">확인했습니다</button>
+    <button type="button" class="season-close"
+      onclick="closeSeasonPopup()">확인했습니다</button>
   </div>
 </div>
 
@@ -405,80 +607,68 @@ input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;hei
 
 <script>
 /* ============================================================
-   ★ Firebase 설정 — 콘솔에서 복사해서 교체하세요
-   Firebase 콘솔 → 프로젝트 설정 → 내 앱 → SDK 설정 및 구성
+   ★★★ Firebase 설정값을 여기에 입력하세요 ★★★
+   Firebase 콘솔 → 프로젝트 설정 → 내 앱 → 구성(Config) 복사
    Firestore 컬렉션: companies / sites / adminInfo / notifs / seasonShown
 ============================================================ */
-var firebaseConfig = {
-  apiKey:            "여기에_apiKey",
-  authDomain:        "여기에_authDomain",
-  projectId:         "여기에_projectId",
-  storageBucket:     "여기에_storageBucket",
-  messagingSenderId: "여기에_messagingSenderId",
-  appId:             "여기에_appId"
+var FIREBASE_CONFIG = {
+  apiKey:            "여기에_apiKey_입력",
+  authDomain:        "여기에_authDomain_입력",
+  projectId:         "여기에_projectId_입력",
+  storageBucket:     "여기에_storageBucket_입력",
+  messagingSenderId: "여기에_messagingSenderId_입력",
+  appId:             "여기에_appId_입력"
 };
 
-firebase.initializeApp(firebaseConfig);
-var db = firebase.firestore();
-
 /* ============================================================
-   전역 상태
+   전역 변수
 ============================================================ */
-var currentUser      = null;
-var currentTab       = '';
-var editingId        = null;
+var db = null;
+var currentUser       = null;
+var currentTab        = '';
+var editingId         = null;
 var selectedCompanyId = null;
-
-// 메모리 캐시
-var _companies = {};   // { [id]: {...} }
-var _sites     = [];
-var _adminInfo = null;
+var _companies        = {};
+var _sites            = [];
+var _adminInfo        = null;
+var _initRetryCount   = 0;
+var INIT_TIMEOUT_MS   = 12000;  // 12초 타임아웃
 
 /* ============================================================
    시즌 정의
 ============================================================ */
 var SEASONS = [
-  { id:'haebinggi', name:'해빙기', icon:'🌡️', color:'#e67e22', bgColor:'#fef3e2', months:[2,3],
-    title:'해빙기 안전 수칙 안내',
-    body:'이달부터 해빙기가 시작됩니다.
-
-① 절개지·비탈면의 균열, 침하, 토사 유출 여부를 매일 점검하세요.
+  { id:'haebinggi', name:'해빙기', icon:'🌡️', color:'#e67e22',
+    bgColor:'#fef3e2', months:[2,3], title:'해빙기 안전 수칙 안내',
+    body:'① 절개지·비탈면의 균열, 침하, 토사 유출 여부를 매일 점검하세요.
 ② 지반 동결·융해로 인한 가설구조물 기초 변형을 확인하세요.
 ③ 경사면 붕괴 위험 구간에 접근을 통제하세요.
 ④ 중장비 운행 시 지반 침하에 주의하세요.
 ⑤ 비탈면 보호시설 이상 유무를 점검하세요.' },
-  { id:'ugi', name:'우기', icon:'🌧️', color:'#2980b9', bgColor:'#eaf4fb', months:[6,7,8],
-    title:'우기·집중호우 안전 수칙 안내',
-    body:'우기 및 집중호우 시즌입니다.
-
-① 토사 붕괴·흙막이 구조물 변형 여부를 강우 전후 점검하세요.
+  { id:'ugi', name:'우기', icon:'🌧️', color:'#2980b9',
+    bgColor:'#eaf4fb', months:[6,7,8], title:'우기·집중호우 안전 수칙 안내',
+    body:'① 토사 붕괴·흙막이 구조물 변형 여부를 강우 전후 점검하세요.
 ② 배수로를 정비하고 양수기를 준비하세요.
 ③ 호우 예보 시 굴착 작업을 중단하세요.
 ④ 가설 전기시설 누전 차단기 작동 상태를 점검하세요.
 ⑤ 호우특보 발령 시 즉시 대피하세요.' },
-  { id:'taepung', name:'태풍·강풍', icon:'🌀', color:'#8e44ad', bgColor:'#f5eef8', months:[8,9],
-    title:'태풍·강풍 대비 안전 수칙 안내',
-    body:'태풍·강풍 빈번한 시즌입니다.
-
-① 가설 비계·동바리 결속 상태를 점검하세요.
+  { id:'taepung', name:'태풍·강풍', icon:'🌀', color:'#8e44ad',
+    bgColor:'#f5eef8', months:[8,9], title:'태풍·강풍 대비 안전 수칙 안내',
+    body:'① 가설 비계·동바리 결속 상태를 점검하세요.
 ② 낙하물 방지망 고정 상태를 확인하세요.
 ③ 양중장비 운행 기준 풍속(초당 10m)을 준수하세요.
 ④ 비산 우려 자재를 결박 또는 수거하세요.
 ⑤ 태풍 경보 발령 시 전 작업을 중지하세요.' },
-  { id:'donggi', name:'동절기', icon:'❄️', color:'#2c3e50', bgColor:'#eaf2f8', months:[12,1],
-    title:'동절기 안전 수칙 안내',
-    body:'동절기입니다.
-
-① 한중 콘크리트 기준(보온양생)을 준수하세요.
+  { id:'donggi', name:'동절기', icon:'❄️', color:'#2c3e50',
+    bgColor:'#eaf2f8', months:[12,1], title:'동절기 안전 수칙 안내',
+    body:'① 한중 콘크리트 기준(보온양생)을 준수하세요.
 ② 발판·통로의 결빙 여부를 매일 점검하고 제설하세요.
 ③ 용접·용단 작업 시 소화기를 비치하세요.
 ④ 방한복, 방한화 등 개인보호장구를 착용하세요.
 ⑤ 영하 15℃ 이하 또는 풍속 초당 10m 이상 시 작업을 중지하세요.' },
-  { id:'phyum', name:'폭염', icon:'☀️', color:'#e74c3c', bgColor:'#fde8e8', months:[7,8],
-    title:'폭염 대비 안전 수칙 안내',
-    body:'폭염 시즌입니다.
-
-① 오전 11시~오후 2시 야외 작업을 피하세요.
+  { id:'phyum', name:'폭염', icon:'☀️', color:'#e74c3c',
+    bgColor:'#fde8e8', months:[7,8], title:'폭염 대비 안전 수칙 안내',
+    body:'① 오전 11시~오후 2시 야외 작업을 피하세요.
 ② 1시간마다 물 한 컵을 마시세요.
 ③ 그늘막, 냉수 등 온열질환 예방시설을 설치하세요.
 ④ 어지럼증·두통 등 증세 발생 시 즉시 병원에 가세요.
@@ -486,28 +676,201 @@ var SEASONS = [
 ];
 
 /* ============================================================
-   Firestore CRUD 헬퍼
+   ★ Firebase 초기화 — 반지하 차수판 방식 참고
+   window.onload 이후 실행, 타임아웃 + 재시도 처리
 ============================================================ */
-function fetchCompanies() {
-  return db.collection('companies').get().then(function(snap) {
-    _companies = {};
-    snap.forEach(function(d) { _companies[d.id] = Object.assign({ id: d.id }, d.data()); });
-    return _companies;
+window.onload = function() {
+  // SDK 로드 확인
+  if (typeof firebase === 'undefined') {
+    showLoadingError('Firebase SDK를 불러오지 못했습니다.
+인터넷 연결을 확인하고 페이지를 새로고침해 주세요.');
+    return;
+  }
+  initFirebase();
+};
+
+function initFirebase() {
+  setLoadingText('Firebase 연결 중...', '잠시만 기다려 주세요');
+  document.getElementById('retryBtn').style.display = 'none';
+
+  // 타임아웃 설정
+  var timeoutId = setTimeout(function() {
+    if (_initRetryCount < 2) {
+      _initRetryCount++;
+      setLoadingText(
+        'Firebase 연결 재시도 중... (' + _initRetryCount + '/2)',
+        '네트워크 상태를 확인해 주세요'
+      );
+      initFirebase();
+    } else {
+      showLoadingError(
+        '연결 시간이 초과되었습니다.
+
+' +
+        '• Wi-Fi 또는 모바일 데이터를 확인해 주세요
+' +
+        '• Firebase 설정값(apiKey 등)을 확인해 주세요
+' +
+        '• Firestore 보안 규칙을 확인해 주세요'
+      );
+    }
+  }, INIT_TIMEOUT_MS);
+
+  // Firebase 앱 초기화 (중복 방지)
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    db = firebase.firestore();
+
+    // 오프라인 캐시 활성화 (모바일 연결 불안정 대비)
+    db.enablePersistence({ synchronizeTabs: true })
+      .catch(function(err) {
+        // 멀티탭 환경에서 오류는 무시
+        if (err.code !== 'failed-precondition' &&
+            err.code !== 'unimplemented') {
+          console.warn('Persistence:', err.code);
+        }
+      });
+
+  } catch(e) {
+    clearTimeout(timeoutId);
+    showLoadingError('Firebase 초기화 오류: ' + e.message +
+      '
+
+firebaseConfig 설정값을 확인해 주세요.');
+    return;
+  }
+
+  // 데이터 로드
+  Promise.all([
+    fetchAdminSafe(),
+    fetchCompaniesSafe()
+  ])
+  .then(function() {
+    clearTimeout(timeoutId);
+    _initRetryCount = 0;
+    renderCompanyList();
+    document.getElementById('loginPage').style.display = 'flex';
+    hideLoading();
+  })
+  .catch(function(e) {
+    clearTimeout(timeoutId);
+    console.error('Init error:', e);
+    showLoadingError(
+      '데이터 로드 실패
+
+' +
+      '오류: ' + e.message + '
+
+' +
+      '• Firestore 보안 규칙에서 읽기를 허용했는지 확인하세요
+' +
+      '• projectId가 올바른지 확인하세요'
+    );
   });
 }
-function fetchSites() {
-  return db.collection('sites').orderBy('등록일','desc').get().then(function(snap) {
-    _sites = [];
-    snap.forEach(function(d) { _sites.push(Object.assign({ id: d.id }, d.data())); });
-    return _sites;
-  });
+
+function retryInit() {
+  _initRetryCount = 0;
+  initFirebase();
 }
-function fetchAdmin() {
-  return db.collection('adminInfo').doc('info').get().then(function(snap) {
-    _adminInfo = snap.exists ? snap.data() : null;
-    return _adminInfo;
-  });
+
+function setLoadingText(main, sub) {
+  var m = document.getElementById('loadingText');
+  var s = document.getElementById('loadingSub');
+  if (m) m.textContent = main;
+  if (s) s.textContent = sub || '';
 }
+
+function showLoadingError(msg) {
+  setLoadingText('⚠️ 연결 오류', '');
+  var sub = document.getElementById('loadingSub');
+  if (sub) {
+    sub.style.whiteSpace = 'pre-line';
+    sub.style.lineHeight = '1.7';
+    sub.style.color = '#e74c3c';
+    sub.style.fontSize = '.82rem';
+    sub.textContent = msg;
+  }
+  document.getElementById('retryBtn').style.display = 'block';
+}
+
+function hideLoading() {
+  var ov = document.getElementById('loadingOverlay');
+  if (ov) {
+    ov.classList.add('hide');
+    setTimeout(function() { ov.style.display = 'none'; }, 300);
+  }
+}
+
+function showLoading(txt) {
+  var ov = document.getElementById('loadingOverlay');
+  if (ov) {
+    ov.style.display = 'flex';
+    ov.classList.remove('hide');
+  }
+  setLoadingText(txt || '처리 중...', '');
+  document.getElementById('retryBtn').style.display = 'none';
+}
+
+/* ============================================================
+   Firestore 안전 래퍼 (타임아웃 포함)
+============================================================ */
+function withTimeout(promise, ms) {
+  ms = ms || 8000;
+  var timeout = new Promise(function(_, reject) {
+    setTimeout(function() {
+      reject(new Error('요청 시간 초과 (' + ms/1000 + '초)'));
+    }, ms);
+  });
+  return Promise.race([promise, timeout]);
+}
+
+function fetchAdminSafe() {
+  return withTimeout(
+    db.collection('adminInfo').doc('info').get()
+      .then(function(snap) {
+        _adminInfo = snap.exists ? snap.data() : null;
+      }),
+    8000
+  );
+}
+
+function fetchCompaniesSafe() {
+  return withTimeout(
+    db.collection('companies').get()
+      .then(function(snap) {
+        _companies = {};
+        snap.forEach(function(d) {
+          _companies[d.id] = Object.assign({ id: d.id }, d.data());
+        });
+      }),
+    8000
+  );
+}
+
+function fetchSitesSafe() {
+  // orderBy 제거 → 클라이언트 정렬 (Firestore 인덱스 오류 방지)
+  return withTimeout(
+    db.collection('sites').get()
+      .then(function(snap) {
+        _sites = [];
+        snap.forEach(function(d) {
+          _sites.push(Object.assign({ id: d.id }, d.data()));
+        });
+        // 클라이언트에서 등록일 내림차순 정렬
+        _sites.sort(function(a, b) {
+          return (b.등록일 || '').localeCompare(a.등록일 || '');
+        });
+      }),
+    10000
+  );
+}
+
+/* ============================================================
+   Firestore CRUD
+============================================================ */
 function saveCompany(cid, data) {
   return db.collection('companies').doc(cid).set(data, { merge: true });
 }
@@ -531,12 +894,22 @@ function addNotifDB(msg) {
     ts: firebase.firestore.FieldValue.serverTimestamp()
   });
 }
-function fetchNotifs() {
-  return db.collection('notifs').orderBy('ts','desc').get().then(function(snap) {
-    var list = [];
-    snap.forEach(function(d) { list.push(Object.assign({ id: d.id }, d.data())); });
-    return list;
-  });
+function fetchNotifsSafe() {
+  // orderBy 제거 → 클라이언트 정렬
+  return withTimeout(
+    db.collection('notifs').get()
+      .then(function(snap) {
+        var list = [];
+        snap.forEach(function(d) {
+          list.push(Object.assign({ id: d.id }, d.data()));
+        });
+        list.sort(function(a, b) {
+          return (b.time || '').localeCompare(a.time || '');
+        });
+        return list;
+      }),
+    8000
+  );
 }
 function clearNotifsDB() {
   return db.collection('notifs').get().then(function(snap) {
@@ -546,254 +919,308 @@ function clearNotifsDB() {
   });
 }
 function checkSeasonShown(key) {
-  return db.collection('seasonShown').doc(key).get().then(function(s) { return s.exists; });
+  return withTimeout(
+    db.collection('seasonShown').doc(key).get()
+      .then(function(s) { return s.exists; }),
+    5000
+  ).catch(function() { return true; }); // 오류 시 팝업 미표시
 }
 function markSeasonShown(key) {
-  return db.collection('seasonShown').doc(key).set({ date: new Date().toISOString().slice(0,10) });
+  return db.collection('seasonShown').doc(key)
+    .set({ date: new Date().toISOString().slice(0,10) })
+    .catch(function() {}); // 오류 무시
 }
 
 /* ============================================================
    유틸
 ============================================================ */
-function daysDiff(d) { if(!d) return 9999; return Math.floor((new Date()-new Date(d))/86400000); }
+function daysDiff(d) {
+  if (!d) return 9999;
+  return Math.floor((new Date() - new Date(d)) / 86400000);
+}
 function getProgressClass(p) {
-  if(p===0) return 'progress-zero'; if(p<30) return 'progress-low';
-  if(p<70)  return 'progress-mid';  if(p<100) return 'progress-high';
+  if (p === 0)  return 'progress-zero';
+  if (p < 30)   return 'progress-low';
+  if (p < 70)   return 'progress-mid';
+  if (p < 100)  return 'progress-high';
   return 'progress-done';
 }
 function getStatusBadge(s) {
   var days = daysDiff(s.최종업데이트);
-  if(s.공정률===100)              return '<span class="badge badge-blue">✅ 완공</span>';
-  if(s.공정률===0 && days>30)     return '<span class="badge badge-red">⚠️ 장기미착공</span>';
-  if(days>30)                     return '<span class="badge badge-orange">📅 업데이트지연</span>';
-  if(s.공정률>=30 && s.공정률<=80) return '<span class="badge badge-purple">🔍 점검권장</span>';
+  if (s.공정률 === 100)               return '<span class="badge badge-blue">✅ 완공</span>';
+  if (s.공정률 === 0 && days > 30)    return '<span class="badge badge-red">⚠️ 장기미착공</span>';
+  if (days > 30)                      return '<span class="badge badge-orange">📅 업데이트지연</span>';
+  if (s.공정률 >= 30 && s.공정률 <= 80) return '<span class="badge badge-purple">🔍 점검권장</span>';
   return '<span class="badge badge-green">🔨 공사중</span>';
 }
 function calcRiskScore(s) {
   var score = 0;
-  score += Math.min(Math.floor((s.연면적||0)/100), 30);
-  score += Math.min((s.지상층수||0)*5, 40);
-  score += (s.지하층수||0)*5;
-  if(s.용도==='근린생활시설'||s.용도==='업무시설') score+=20;
-  if(s.공정률>10 && s.공정률<=80) score+=15;
-  if(s.공정률===0 && daysDiff(s.최종업데이트)>30) score+=10;
+  score += Math.min(Math.floor((s.연면적 || 0) / 100), 30);
+  score += Math.min((s.지상층수 || 0) * 5, 40);
+  score += (s.지하층수 || 0) * 5;
+  if (s.용도 === '근린생활시설' || s.용도 === '업무시설') score += 20;
+  if (s.공정률 > 10 && s.공정률 <= 80) score += 15;
+  if (s.공정률 === 0 && daysDiff(s.최종업데이트) > 30) score += 10;
   return score;
 }
-function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
-function isValidPw(pw) { return pw.length>=6 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw); }
-function isValidAdminPw(pw) { return pw.length>=8 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw); }
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+function isValidPw(pw) {
+  return pw.length >= 6 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw);
+}
+function isValidAdminPw(pw) {
+  return pw.length >= 8 && /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw);
+}
 function showToast(msg) {
-  var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  setTimeout(function(){t.classList.remove('show');},3200);
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3200);
 }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-function showLoading(txt) {
-  document.getElementById('loadingText').textContent=txt||'처리 중...';
-  document.getElementById('loadingOverlay').style.display='flex';
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
 }
-function hideLoading() { document.getElementById('loadingOverlay').style.display='none'; }
+function e(id) { return document.getElementById(id); }
+function gv(id) { var el = e(id); return el ? el.value.trim() : ''; }
 
 /* ============================================================
-   초기화
-============================================================ */
-function init() {
-  showLoading('Firebase 연결 중...');
-  fetchAdmin().then(function() {
-    return fetchCompanies();
-  }).then(function() {
-    renderCompanyList();
-    document.getElementById('loginPage').style.display='flex';
-    hideLoading();
-  }).catch(function(e) {
-    document.getElementById('loadingText').textContent='⚠️ Firebase 연결 실패. 설정값을 확인하세요.';
-    console.error(e);
-  });
-}
-init();
-
-/* ============================================================
-   ★ 로그인 탭 전환 — onclick으로 직접 호출되므로 즉시 반응
+   로그인 탭 전환
 ============================================================ */
 function switchLoginType(type) {
-  var btnC  = document.getElementById('tabBtnContractor');
-  var btnA  = document.getElementById('tabBtnAdmin');
-  var areaC = document.getElementById('contractorArea');
-  var areaA = document.getElementById('adminArea');
-  if(!btnC||!btnA||!areaC||!areaA) return;
+  var btnC  = e('tabBtnContractor');
+  var btnA  = e('tabBtnAdmin');
+  var areaC = e('contractorArea');
+  var areaA = e('adminArea');
 
-  if(type==='admin') {
-    btnC.classList.remove('active'); btnA.classList.add('active');
-    areaC.style.display='none';     areaA.style.display='block';
-    // 관리자 설정/로그인 분기
-    var setupArea  = document.getElementById('adminSetupArea');
-    var loginArea  = document.getElementById('adminLoginArea');
-    var expireWarn = document.getElementById('adminPwExpireWarn');
-    if(setupArea)  setupArea.style.display  = _adminInfo ? 'none' : 'block';
-    if(loginArea)  loginArea.style.display  = _adminInfo ? 'block' : 'none';
-    if(_adminInfo && expireWarn) {
-      var d = Math.floor((Date.now()-(_adminInfo.pwChangedAt||_adminInfo.createdAt))/86400000);
-      expireWarn.style.display = d>90 ? 'block' : 'none';
+  if (type === 'admin') {
+    btnC.classList.remove('active');
+    btnA.classList.add('active');
+    areaC.style.display = 'none';
+    areaA.style.display = 'block';
+    var setupArea  = e('adminSetupArea');
+    var loginArea  = e('adminLoginArea');
+    var expireWarn = e('adminPwExpireWarn');
+    if (setupArea)  setupArea.style.display  = _adminInfo ? 'none' : 'block';
+    if (loginArea)  loginArea.style.display  = _adminInfo ? 'block' : 'none';
+    if (_adminInfo && expireWarn) {
+      var d = Math.floor(
+        (Date.now() - (_adminInfo.pwChangedAt || _adminInfo.createdAt)) / 86400000
+      );
+      expireWarn.style.display = d > 90 ? 'block' : 'none';
     }
   } else {
-    btnA.classList.remove('active'); btnC.classList.add('active');
-    areaA.style.display='none';     areaC.style.display='block';
-    fetchCompanies().then(function(){ renderCompanyList(); });
+    btnA.classList.remove('active');
+    btnC.classList.add('active');
+    areaA.style.display = 'none';
+    areaC.style.display = 'block';
+    fetchCompaniesSafe()
+      .then(function() { renderCompanyList(); })
+      .catch(function() {});
     showView('loginViewA');
   }
 }
 
 /* ============================================================
-   업체 목록 렌더링
+   업체 목록
 ============================================================ */
 function renderCompanyList() {
-  var list = Object.values(_companies).sort(function(a,b){ return a.name.localeCompare(b.name,'ko'); });
-  var el   = document.getElementById('companyList');
-  if(!el) return;
-  if(!list.length) {
-    el.innerHTML='<div class="empty-state" style="padding:14px"><div class="icon">🏢</div>등록된 업체가 없습니다</div>';
+  var list = Object.values(_companies).sort(function(a, b) {
+    return (a.name || '').localeCompare(b.name || '', 'ko');
+  });
+  var el = e('companyList');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:12px">' +
+      '<div class="icon">🏢</div>등록된 업체가 없습니다</div>';
     return;
   }
   el.innerHTML = list.map(function(c) {
-    var cnt = _sites.filter(function(s){ return s.companyId===c.id; }).length;
-    return '<button type="button" class="company-item" onclick="selectCompany(\''+c.id+'\')">'+
-      '<div><div class="company-item-name">🏢 '+c.name+'</div>'+
-      '<div class="company-item-sub">등록 공사장 '+cnt+'건 · 가입일 '+(c.등록일||'')+'</div></div>'+
-      '<div style="color:#2e86c1;font-size:1.1rem;">→</div></button>';
+    var cnt = _sites.filter(function(s) { return s.companyId === c.id; }).length;
+    return '<button type="button" class="company-item" ' +
+      'onclick="selectCompany(\'' + c.id + '\')">' +
+      '<div><div class="company-item-name">🏢 ' + c.name + '</div>' +
+      '<div class="company-item-sub">공사장 ' + cnt + '건 · ' +
+      (c.등록일 || '') + '</div></div>' +
+      '<div style="color:#2e86c1;font-size:1.1rem">→</div></button>';
   }).join('');
 }
 
 function selectCompany(cid) {
-  var c = _companies[cid]; if(!c) return;
+  var c = _companies[cid];
+  if (!c) return;
   selectedCompanyId = cid;
-  document.getElementById('selectedCompanyName').textContent = c.name;
-  document.getElementById('selectedCompanySub').textContent  = '가입일 '+(c.등록일||'');
-  document.getElementById('c_pw').value = '';
+  var nm = e('selectedCompanyName');
+  var sb = e('selectedCompanySub');
+  if (nm) nm.textContent = c.name;
+  if (sb) sb.textContent = '가입일 ' + (c.등록일 || '');
+  var pw = e('c_pw');
+  if (pw) pw.value = '';
   showView('loginViewB');
 }
+
 function showListView() {
-  fetchCompanies().then(function(){ renderCompanyList(); showView('loginViewA'); });
+  fetchCompaniesSafe()
+    .then(function() { renderCompanyList(); showView('loginViewA'); })
+    .catch(function() { showView('loginViewA'); });
 }
+
 function showView(id) {
-  ['loginViewA','loginViewB','loginViewC'].forEach(function(v){
-    var el=document.getElementById(v); if(el) el.style.display=(v===id)?'block':'none';
+  ['loginViewA', 'loginViewB', 'loginViewC'].forEach(function(v) {
+    var el = e(v);
+    if (el) el.style.display = (v === id) ? 'block' : 'none';
   });
 }
 
 /* ============================================================
-   비밀번호 유효성 힌트
+   비밀번호 힌트
 ============================================================ */
 function checkNewPw() {
-  var pw=document.getElementById('c_newPw1').value;
-  var h=document.getElementById('newPwHint');
-  h.textContent=isValidPw(pw)?'✅ 사용 가능':'❌ 영문+숫자 6자 이상';
-  h.className='pw-hint '+(isValidPw(pw)?'ok':'err');
+  var pw = e('c_newPw1').value;
+  var h  = e('newPwHint');
+  h.textContent = isValidPw(pw) ? '✅ 사용 가능' : '❌ 영문+숫자 6자 이상';
+  h.className   = 'pw-hint ' + (isValidPw(pw) ? 'ok' : 'err');
 }
 function checkNewPwMatch() {
-  var pw1=document.getElementById('c_newPw1').value;
-  var pw2=document.getElementById('c_newPw2').value;
-  var h=document.getElementById('newPwMatchHint');
-  if(!pw2){h.textContent='';return;}
-  h.textContent=pw1===pw2?'✅ 일치':'❌ 불일치';
-  h.className='pw-hint '+(pw1===pw2?'ok':'err');
+  var pw1 = e('c_newPw1').value;
+  var pw2 = e('c_newPw2').value;
+  var h   = e('newPwMatchHint');
+  if (!pw2) { h.textContent = ''; return; }
+  h.textContent = pw1 === pw2 ? '✅ 일치' : '❌ 불일치';
+  h.className   = 'pw-hint ' + (pw1 === pw2 ? 'ok' : 'err');
 }
 function checkAdminPwStrength() {
-  var pw=document.getElementById('setupAdminPw1').value;
-  var bar=document.getElementById('adminPwStrengthBar');
-  var hint=document.getElementById('adminPwHint');
-  var s=0;
-  if(pw.length>=8)s++; if(/[a-z]/.test(pw))s++; if(/[A-Z]/.test(pw))s++;
-  if(/[0-9]/.test(pw))s++; if(/[^a-zA-Z0-9]/.test(pw))s++;
-  var colors=['','#e74c3c','#f39c12','#f39c12','#27ae60','#1e8449'];
-  var labels=['','매우 약함','약함','보통','강함','매우 강함'];
-  bar.style.width=(s*20)+'%'; bar.style.background=colors[s]||'#e2e8f0';
-  hint.textContent=s>0?labels[s]:'영문+숫자 8자 이상';
-  hint.className='pw-hint '+(s>=3?'ok':'err');
+  var pw   = e('setupAdminPw1').value;
+  var bar  = e('adminPwStrengthBar');
+  var hint = e('adminPwHint');
+  var s = 0;
+  if (pw.length >= 8) s++;
+  if (/[a-z]/.test(pw)) s++;
+  if (/[A-Z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^a-zA-Z0-9]/.test(pw)) s++;
+  var colors = ['', '#e74c3c', '#f39c12', '#f39c12', '#27ae60', '#1e8449'];
+  var labels = ['', '매우 약함', '약함', '보통', '강함', '매우 강함'];
+  bar.style.width      = (s * 20) + '%';
+  bar.style.background = colors[s] || '#e2e8f0';
+  hint.textContent = s > 0 ? labels[s] : '영문+숫자 8자 이상';
+  hint.className   = 'pw-hint ' + (s >= 3 ? 'ok' : 'err');
   checkAdminPwMatch();
 }
 function checkAdminPwMatch() {
-  var pw1=document.getElementById('setupAdminPw1').value;
-  var pw2=document.getElementById('setupAdminPw2').value;
-  var h=document.getElementById('adminPwMatchHint');
-  if(!pw2){h.textContent='';return;}
-  h.textContent=pw1===pw2?'✅ 일치':'❌ 불일치';
-  h.className='pw-hint '+(pw1===pw2?'ok':'err');
+  var pw1 = e('setupAdminPw1').value;
+  var pw2 = e('setupAdminPw2').value;
+  var h   = e('adminPwMatchHint');
+  if (!pw2) { h.textContent = ''; return; }
+  h.textContent = pw1 === pw2 ? '✅ 일치' : '❌ 불일치';
+  h.className   = 'pw-hint ' + (pw1 === pw2 ? 'ok' : 'err');
 }
 
 /* ============================================================
-   시공업체 로그인 / 신규 등록
+   시공업체 로그인 / 등록
 ============================================================ */
 function loginContractor() {
-  var pw = document.getElementById('c_pw').value.trim();
-  if(!pw){showToast('⚠️ 비밀번호를 입력해주세요');return;}
+  var pw = gv('c_pw');
+  if (!pw) { showToast('⚠️ 비밀번호를 입력해주세요'); return; }
   var c = _companies[selectedCompanyId];
-  if(!c){showToast('❌ 업체 정보를 찾을 수 없습니다');return;}
-  if(c.pw!==pw){showToast('❌ 비밀번호가 올바르지 않습니다');return;}
+  if (!c) { showToast('❌ 업체 정보를 찾을 수 없습니다'); return; }
+  if (c.pw !== pw) { showToast('❌ 비밀번호가 올바르지 않습니다'); return; }
   showLoading('데이터 불러오는 중...');
-  fetchSites().then(function(){
-    currentUser={role:'contractor',companyId:selectedCompanyId,name:c.name,code:selectedCompanyId};
-    hideLoading();
-    startApp();
-  }).catch(function(e){showToast('❌ 오류: '+e.message);hideLoading();});
+  fetchSitesSafe()
+    .then(function() {
+      currentUser = {
+        role: 'contractor',
+        companyId: selectedCompanyId,
+        name: c.name,
+        code: selectedCompanyId
+      };
+      hideLoading();
+      startApp();
+    })
+    .catch(function(err) {
+      showToast('❌ 오류: ' + err.message);
+      hideLoading();
+    });
 }
 
 function createCompany() {
-  var name=document.getElementById('c_newName').value.trim();
-  var pw1 =document.getElementById('c_newPw1').value.trim();
-  var pw2 =document.getElementById('c_newPw2').value.trim();
-  if(!name){showToast('⚠️ 업체명을 입력해주세요');return;}
-  if(!isValidPw(pw1)){showToast('⚠️ 비밀번호는 영문+숫자 6자 이상');return;}
-  if(pw1!==pw2){showToast('⚠️ 비밀번호 불일치');return;}
-  if(Object.values(_companies).find(function(c){return c.name===name;})){
-    showToast('❌ 같은 이름의 업체가 이미 있습니다');return;
+  var name = gv('c_newName');
+  var pw1  = gv('c_newPw1');
+  var pw2  = gv('c_newPw2');
+  if (!name) { showToast('⚠️ 업체명을 입력해주세요'); return; }
+  if (!isValidPw(pw1)) { showToast('⚠️ 비밀번호 영문+숫자 6자 이상'); return; }
+  if (pw1 !== pw2) { showToast('⚠️ 비밀번호 불일치'); return; }
+  if (Object.values(_companies).find(function(c) { return c.name === name; })) {
+    showToast('❌ 같은 이름의 업체가 이미 있습니다'); return;
   }
   showLoading('업체 등록 중...');
-  var cid=genId(), today=new Date().toISOString().slice(0,10);
-  var data={id:cid,name:name,pw:pw1,등록일:today};
-  saveCompany(cid,data).then(function(){
-    _companies[cid]=data;
-    return addNotifDB('🆕 신규 업체 가입: '+name);
-  }).then(function(){
-    return fetchSites();
-  }).then(function(){
-    currentUser={role:'contractor',companyId:cid,name:name,code:cid};
-    showToast('✅ 업체 등록 완료! 환영합니다.');
-    hideLoading();
-    startApp();
-  }).catch(function(e){showToast('❌ 오류: '+e.message);hideLoading();});
+  var cid   = genId();
+  var today = new Date().toISOString().slice(0, 10);
+  var data  = { id: cid, name: name, pw: pw1, 등록일: today };
+  saveCompany(cid, data)
+    .then(function() {
+      _companies[cid] = data;
+      return addNotifDB('🆕 신규 업체 가입: ' + name);
+    })
+    .then(function() { return fetchSitesSafe(); })
+    .then(function() {
+      currentUser = { role: 'contractor', companyId: cid, name: name, code: cid };
+      showToast('✅ 업체 등록 완료! 환영합니다.');
+      hideLoading();
+      startApp();
+    })
+    .catch(function(err) {
+      showToast('❌ 오류: ' + err.message);
+      hideLoading();
+    });
 }
 
 /* ============================================================
-   관리자 최초 설정 / 로그인
+   관리자 설정 / 로그인
 ============================================================ */
 function setupAdmin() {
-  var id=document.getElementById('setupAdminId').value.trim();
-  var pw1=document.getElementById('setupAdminPw1').value.trim();
-  var pw2=document.getElementById('setupAdminPw2').value.trim();
-  if(!id||id.length<4){showToast('⚠️ 아이디 4자 이상');return;}
-  if(!isValidAdminPw(pw1)){showToast('⚠️ 비밀번호 영문+숫자 8자 이상');return;}
-  if(pw1!==pw2){showToast('⚠️ 비밀번호 불일치');return;}
-  if(_adminInfo){showToast('❌ 이미 관리자 계정이 있습니다');return;}
+  var id  = gv('setupAdminId');
+  var pw1 = gv('setupAdminPw1');
+  var pw2 = gv('setupAdminPw2');
+  if (!id || id.length < 4)    { showToast('⚠️ 아이디 4자 이상'); return; }
+  if (!isValidAdminPw(pw1))    { showToast('⚠️ 비밀번호 영문+숫자 8자 이상'); return; }
+  if (pw1 !== pw2)             { showToast('⚠️ 비밀번호 불일치'); return; }
+  if (_adminInfo)              { showToast('❌ 이미 관리자 계정이 있습니다'); return; }
   showLoading('관리자 계정 생성 중...');
-  var data={id:id,pw:pw1,createdAt:Date.now(),pwChangedAt:Date.now(),pwChangeCount:0,pwHistory:[]};
-  saveAdmin(data).then(function(){
-    _adminInfo=data;
-    showToast('✅ 관리자 계정 생성 완료. 로그인하세요.');
-    hideLoading();
-    switchLoginType('admin');
-  }).catch(function(e){showToast('❌ 오류: '+e.message);hideLoading();});
+  var data = {
+    id: id, pw: pw1,
+    createdAt: Date.now(), pwChangedAt: Date.now(),
+    pwChangeCount: 0, pwHistory: []
+  };
+  saveAdmin(data)
+    .then(function() {
+      _adminInfo = data;
+      showToast('✅ 관리자 계정 생성 완료');
+      hideLoading();
+      switchLoginType('admin');
+    })
+    .catch(function(err) {
+      showToast('❌ 오류: ' + err.message);
+      hideLoading();
+    });
 }
 
 function loginAdmin() {
-  var id=document.getElementById('adminId').value.trim();
-  var pw=document.getElementById('adminPw').value.trim();
-  if(!_adminInfo){showToast('⚠️ 먼저 관리자 계정을 설정하세요');return;}
-  if(_adminInfo.id===id && _adminInfo.pw===pw){
+  var id = gv('adminId');
+  var pw = gv('adminPw');
+  if (!_adminInfo) { showToast('⚠️ 먼저 관리자 계정을 설정하세요'); return; }
+  if (_adminInfo.id === id && _adminInfo.pw === pw) {
     showLoading('데이터 불러오는 중...');
-    fetchSites().then(function(){
-      currentUser={role:'admin',name:'화성시 건축과',code:'ADMIN'};
-      hideLoading();
-      startApp();
-    }).catch(function(e){showToast('❌ 오류: '+e.message);hideLoading();});
+    fetchSitesSafe()
+      .then(function() {
+        currentUser = { role: 'admin', name: '화성시 건축과', code: 'ADMIN' };
+        hideLoading();
+        startApp();
+      })
+      .catch(function(err) {
+        showToast('❌ 오류: ' + err.message);
+        hideLoading();
+      });
   } else {
     showToast('❌ 관리자 계정 정보가 올바르지 않습니다');
   }
@@ -803,809 +1230,1027 @@ function loginAdmin() {
    앱 시작 / 로그아웃
 ============================================================ */
 function startApp() {
-  document.getElementById('loginPage').style.display='none';
-  document.getElementById('mainApp').style.display='block';
-  if(currentUser.role==='admin'){
-    document.getElementById('userBadge').className='badge-admin';
-    document.getElementById('userBadge').textContent='관리자(시청)';
-    document.getElementById('headerSubtitle').textContent='화성시 건축과 | 전체 현장 관리';
+  e('loginPage').style.display = 'none';
+  e('mainApp').style.display   = 'block';
+  if (currentUser.role === 'admin') {
+    e('userBadge').className   = 'badge-admin';
+    e('userBadge').textContent = '관리자(시청)';
+    e('headerSubtitle').textContent = '화성시 건축과 | 전체 현장 관리';
   } else {
-    document.getElementById('userBadge').className='badge-user';
-    document.getElementById('userBadge').textContent='시공업체';
-    document.getElementById('headerSubtitle').textContent=currentUser.name;
+    e('userBadge').className   = 'badge-user';
+    e('userBadge').textContent = '시공업체';
+    e('headerSubtitle').textContent = currentUser.name;
   }
-  document.getElementById('userNameDisplay').textContent=currentUser.name;
+  var nd = e('userNameDisplay');
+  if (nd) { nd.textContent = currentUser.name; nd.style.display = 'inline'; }
   buildTabs();
-  switchTab(currentUser.role==='admin'?'dashboard':'mySites');
+  switchTab(currentUser.role === 'admin' ? 'dashboard' : 'mySites');
   checkSeasonPopup();
 }
 
 function logout() {
-  currentUser=null; selectedCompanyId=null;
-  document.getElementById('mainApp').style.display='none';
-  document.getElementById('loginPage').style.display='flex';
-  ['c_pw','c_newPw1','c_newPw2','c_newName','adminId','adminPw'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
+  currentUser = null; selectedCompanyId = null;
+  e('mainApp').style.display   = 'none';
+  e('loginPage').style.display = 'flex';
+  ['c_pw','c_newPw1','c_newPw2','c_newName','adminId','adminPw'].forEach(function(id) {
+    var el = e(id); if (el) el.value = '';
   });
-  renderCompanyList(); showView('loginViewA'); switchLoginType('contractor');
+  renderCompanyList();
+  showView('loginViewA');
+  switchLoginType('contractor');
 }
 
 /* ============================================================
    시즌 팝업
 ============================================================ */
 function checkSeasonPopup() {
-  var month=new Date().getMonth()+1, year=new Date().getFullYear();
-  var idx=0;
+  var month = new Date().getMonth() + 1;
+  var year  = new Date().getFullYear();
+  var idx   = 0;
   function next() {
-    if(idx>=SEASONS.length) return;
-    var s=SEASONS[idx++];
-    if(s.months.indexOf(month)<0){next();return;}
-    var key=s.id+'_'+year+'_'+month;
-    checkSeasonShown(key).then(function(shown){
-      if(!shown){ markSeasonShown(key); showSeasonPopup(s); }
+    if (idx >= SEASONS.length) return;
+    var s = SEASONS[idx++];
+    if (s.months.indexOf(month) < 0) { next(); return; }
+    var key = s.id + '_' + year + '_' + month;
+    checkSeasonShown(key).then(function(shown) {
+      if (!shown) { markSeasonShown(key); showSeasonPopup(s); }
       else next();
     });
   }
   next();
 }
 function showSeasonPopup(s) {
-  document.getElementById('seasonIcon').textContent=s.icon;
-  document.getElementById('seasonTitle').textContent=s.title;
-  document.getElementById('seasonBody').innerHTML=s.body.replace(/
-/g,'<br>');
-  var b=document.getElementById('seasonBadge');
-  b.textContent=s.name+' 안전 주의'; b.style.background=s.bgColor; b.style.color=s.color;
-  document.getElementById('seasonPopup').classList.add('show');
+  e('seasonIcon').textContent  = s.icon;
+  e('seasonTitle').textContent = s.title;
+  e('seasonBody').innerHTML    = s.body.replace(/
+/g, '<br>');
+  var b = e('seasonBadge');
+  b.textContent   = s.name + ' 안전 주의';
+  b.style.background = s.bgColor;
+  b.style.color      = s.color;
+  e('seasonPopup').classList.add('show');
 }
-function closeSeasonPopup(){document.getElementById('seasonPopup').classList.remove('show');}
-function adminSendSeasonPopup(id){var s=SEASONS.find(function(x){return x.id===id;});if(s)showSeasonPopup(s);}
+function closeSeasonPopup() { e('seasonPopup').classList.remove('show'); }
+function adminSendSeasonPopup(id) {
+  var s = SEASONS.find(function(x) { return x.id === id; });
+  if (s) showSeasonPopup(s);
+}
 
 /* ============================================================
    탭 구성
 ============================================================ */
 function buildTabs() {
-  var nav=document.getElementById('tabNav'); nav.innerHTML='';
-  var tabs=currentUser.role==='admin'
-    ?[{id:'dashboard',label:'📊 대시보드'},{id:'allSites',label:'🗂️ 전체 현장'},
-      {id:'riskRank',label:'⚠️ 위험도 순위'},{id:'inspection',label:'🔍 점검 관리'},
-      {id:'pwManager',label:'🔑 업체 비밀번호'},{id:'security',label:'🔒 보안 설정'},
-      {id:'alerts',label:'🔔 알림 센터'},{id:'register',label:'➕ 현장 등록'}]
-    :[{id:'mySites',label:'🏗️ 내 공사장'},{id:'register',label:'➕ 공사 등록'},{id:'guide',label:'📋 이용 안내'}];
-  tabs.forEach(function(t){
-    var btn=document.createElement('button');
-    btn.type='button'; btn.className='tab-btn'; btn.id='tab_'+t.id; btn.textContent=t.label;
-    btn.addEventListener('click',function(){switchTab(t.id);});
+  var nav  = e('tabNav'); nav.innerHTML = '';
+  var tabs = currentUser.role === 'admin'
+    ? [
+        { id: 'dashboard',  label: '📊 대시보드' },
+        { id: 'allSites',   label: '🗂️ 전체 현장' },
+        { id: 'riskRank',   label: '⚠️ 위험도 순위' },
+        { id: 'inspection', label: '🔍 점검 관리' },
+        { id: 'pwManager',  label: '🔑 업체 비밀번호' },
+        { id: 'security',   label: '🔒 보안 설정' },
+        { id: 'alerts',     label: '🔔 알림 센터' },
+        { id: 'register',   label: '➕ 현장 등록' }
+      ]
+    : [
+        { id: 'mySites',  label: '🏗️ 내 공사장' },
+        { id: 'register', label: '➕ 공사 등록' },
+        { id: 'guide',    label: '📋 이용 안내' }
+      ];
+  tabs.forEach(function(t) {
+    var btn = document.createElement('button');
+    btn.type      = 'button';
+    btn.className = 'tab-btn';
+    btn.id        = 'tab_' + t.id;
+    btn.textContent = t.label;
+    btn.addEventListener('click', function() { switchTab(t.id); });
     nav.appendChild(btn);
   });
 }
 
 function switchTab(tabId) {
-  currentTab=tabId;
-  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
-  var a=document.getElementById('tab_'+tabId); if(a) a.classList.add('active');
-  if(tabId==='alerts'){renderAlerts();return;}
-  var map={
-    dashboard:renderDashboard, allSites:renderAllSites, riskRank:renderRiskRank,
-    inspection:renderInspection, pwManager:renderPwManager, security:renderSecurity,
-    register:renderRegister, mySites:renderMySites, guide:renderGuide
+  currentTab = tabId;
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  var a = e('tab_' + tabId);
+  if (a) a.classList.add('active');
+  if (tabId === 'alerts') { renderAlerts(); return; }
+  var map = {
+    dashboard:  renderDashboard,
+    allSites:   renderAllSites,
+    riskRank:   renderRiskRank,
+    inspection: renderInspection,
+    pwManager:  renderPwManager,
+    security:   renderSecurity,
+    register:   renderRegister,
+    mySites:    renderMySites,
+    guide:      renderGuide
   };
-  document.getElementById('tabContent').innerHTML=(map[tabId]||function(){return '<p>준비 중</p>';})();
+  e('tabContent').innerHTML = (map[tabId] || function() { return '<p>준비 중</p>'; })();
 }
 
 /* ============================================================
-   점검 이력 모달
+   점검 모달
 ============================================================ */
 function showInspModal(siteId) {
-  editingId=siteId;
-  var s=_sites.find(function(x){return x.id===siteId;}); if(!s) return;
-  var inspList=s.점검이력||[];
-  var histHtml=inspList.length===0
-    ?'<div class="empty-state" style="padding:12px"><div class="icon">📋</div>점검 이력 없음</div>'
-    :'<table class="insp-table" style="margin-top:10px;min-width:unset"><tr><th>회차</th><th>점검일</th><th>유형</th><th>점검자</th><th>결과</th></tr>'+
-      inspList.map(function(r,i){return '<tr class="'+(i%2===0?'insp-row-odd':'insp-row-even')+'">'+
-        '<td><span class="badge badge-blue">'+(i+1)+'차</span></td>'+
-        '<td>'+r.날짜+'</td><td>'+(r.유형||'정기점검')+'</td><td>'+r.점검자+'</td>'+
-        '<td style="text-align:left;font-size:.81rem">'+r.내용+'</td></tr>';}).join('')+'</table>';
+  editingId = siteId;
+  var s = _sites.find(function(x) { return x.id === siteId; });
+  if (!s) return;
+  var inspList = s.점검이력 || [];
+  var histHtml = inspList.length === 0
+    ? '<div class="empty-state" style="padding:10px"><div class="icon">📋</div>점검 이력 없음</div>'
+    : '<div class="table-wrap"><table class="insp-table"><tr><th>회차</th><th>점검일</th><th>유형</th><th>점검자</th><th>결과</th></tr>' +
+      inspList.map(function(r, i) {
+        return '<tr><td><span class="badge badge-blue">' + (i+1) + '차</span></td>' +
+          '<td>' + r.날짜 + '</td><td>' + (r.유형||'정기점검') + '</td><td>' + r.점검자 + '</td>' +
+          '<td style="text-align:left;font-size:.79rem">' + r.내용 + '</td></tr>';
+      }).join('') + '</table></div>';
 
-  document.getElementById('inspContent').innerHTML=
-    '<div style="margin-bottom:13px">'+
-    '<div style="font-size:.81rem;color:#2e86c1;font-weight:700;margin-bottom:3px">'+s.permitNo+'</div>'+
-    '<div style="font-size:.81rem;color:#718096">'+s.주소+'</div></div>'+
-    '<div style="background:#eaf4fb;border-radius:10px;padding:11px;margin-bottom:14px">'+
-    '<span style="font-size:.81rem;color:#1a5276;font-weight:700">누적 점검 횟수: '+inspList.length+'회</span>'+
-    (inspList.length>0?'<span style="font-size:.77rem;color:#718096;margin-left:9px">최근: '+inspList[inspList.length-1].날짜+'</span>':'')+'</div>'+
-    '<div style="font-weight:700;color:#1a5276;margin-bottom:11px;font-size:.93rem">➕ 새 점검 결과 등록</div>'+
-    '<div class="form-grid" style="grid-template-columns:1fr 1fr">'+
-    '<div class="form-group"><label>점검일 *</label><input type="date" id="insp_date" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
-    '<div class="form-group"><label>점검 유형 *</label><select id="insp_type">'+
-    '<option>1차 점검</option><option>2차 점검</option><option>3차 점검</option>'+
-    '<option>분기 점검</option><option>해빙기 점검</option><option>우기 점검</option>'+
-    '<option>동절기 점검</option><option>준공 전 점검</option><option>특별 점검</option><option>수시 점검</option>'+
-    '</select></div>'+
-    '<div class="form-group"><label>점검자 *</label><input type="text" id="insp_inspector" placeholder="점검 담당자 이름"></div>'+
-    '<div class="form-group" style="grid-column:1/-1"><label>점검 결과 및 특이사항 *</label>'+
-    '<textarea id="insp_note" rows="3" placeholder="점검 결과, 지적사항, 조치 내용 등"></textarea></div></div>'+
-    '<div style="margin-top:13px;display:flex;gap:9px">'+
-    '<button type="button" class="insp-add-btn" onclick="submitInspection()">✅ 점검 결과 등록</button>'+
-    '<button type="button" onclick="closeModal(\'inspModal\')" style="padding:7px 15px;border:2px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;font-family:inherit;font-size:.84rem">취소</button></div>'+
-    '<div style="margin-top:16px;border-top:2px solid #e2e8f0;padding-top:13px">'+
-    '<div style="font-weight:700;color:#1a5276;margin-bottom:7px;font-size:.88rem">📋 점검 이력</div>'+histHtml+'</div>';
-  document.getElementById('inspModal').classList.add('show');
+  e('inspContent').innerHTML =
+    '<div style="margin-bottom:12px">' +
+    '<div style="font-size:.8rem;color:#2e86c1;font-weight:700">' + s.permitNo + '</div>' +
+    '<div style="font-size:.79rem;color:#718096">' + s.주소 + '</div></div>' +
+    '<div style="background:#eaf4fb;border-radius:10px;padding:10px;margin-bottom:13px">' +
+    '<span style="font-size:.8rem;color:#1a5276;font-weight:700">누적 ' + inspList.length + '회 점검</span>' +
+    (inspList.length > 0 ? '<span style="font-size:.75rem;color:#718096;margin-left:8px">최근: ' +
+      inspList[inspList.length-1].날짜 + '</span>' : '') + '</div>' +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr">' +
+    '<div class="form-group"><label>점검일 *</label>' +
+    '<input type="date" id="insp_date" value="' + new Date().toISOString().slice(0,10) + '"></div>' +
+    '<div class="form-group"><label>점검 유형 *</label><select id="insp_type">' +
+    '<option>1차 점검</option><option>2차 점검</option><option>3차 점검</option>' +
+    '<option>분기 점검</option><option>해빙기 점검</option><option>우기 점검</option>' +
+    '<option>동절기 점검</option><option>준공 전 점검</option><option>특별 점검</option>' +
+    '</select></div>' +
+    '<div class="form-group"><label>점검자 *</label>' +
+    '<input type="text" id="insp_inspector" placeholder="점검 담당자 이름"></div>' +
+    '<div class="form-group form-full"><label>점검 결과 및 특이사항 *</label>' +
+    '<textarea id="insp_note" rows="3" placeholder="점검 결과, 지적사항, 조치 내용 등"></textarea></div></div>' +
+    '<div style="margin-top:12px;display:flex;gap:8px">' +
+    '<button type="button" class="insp-add-btn" onclick="submitInspection()">✅ 점검 결과 등록</button>' +
+    '<button type="button" onclick="closeModal(\'inspModal\')" ' +
+    'style="padding:7px 14px;border:2px solid #e2e8f0;border-radius:8px;' +
+    'background:white;cursor:pointer;font-family:inherit;font-size:.83rem">취소</button></div>' +
+    '<div style="margin-top:15px;border-top:2px solid #e2e8f0;padding-top:12px">' +
+    '<div style="font-weight:700;color:#1a5276;margin-bottom:7px;font-size:.87rem">📋 점검 이력</div>' +
+    histHtml + '</div>';
+  e('inspModal').classList.add('show');
 }
 
 function submitInspection() {
-  var date=document.getElementById('insp_date').value;
-  var type=document.getElementById('insp_type').value;
-  var insp=document.getElementById('insp_inspector').value.trim();
-  var note=document.getElementById('insp_note').value.trim();
-  if(!date||!insp||!note){showToast('⚠️ 모든 항목을 입력해주세요');return;}
+  var date = gv('insp_date');
+  var type = gv('insp_type');
+  var insp = gv('insp_inspector');
+  var note = gv('insp_note');
+  if (!date || !insp || !note) { showToast('⚠️ 모든 항목을 입력해주세요'); return; }
   showLoading('점검 결과 저장 중...');
-  var idx=_sites.findIndex(function(s){return s.id===editingId;});
-  if(idx===-1){hideLoading();return;}
-  var entry={날짜:date,유형:type,점검자:insp,내용:note,등록시각:new Date().toISOString()};
-  var prev=_sites[idx].점검이력||[];
-  var updated=prev.concat([entry]);
-  saveSite(editingId,{점검이력:updated,최근점검일:date,최근점검유형:type}).then(function(){
-    _sites[idx].점검이력=updated;
-    _sites[idx].최근점검일=date; _sites[idx].최근점검유형=type;
-    return addNotifDB('🔍 점검 등록: ['+_sites[idx].permitNo+'] '+type+' ('+date+') — '+insp);
-  }).then(function(){
-    showToast('✅ '+type+' 결과 등록 완료 (총 '+updated.length+'회)');
-    closeModal('inspModal'); switchTab(currentTab);
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  var idx = _sites.findIndex(function(s) { return s.id === editingId; });
+  if (idx === -1) { hideLoading(); return; }
+  var entry  = { 날짜: date, 유형: type, 점검자: insp, 내용: note,
+                 등록시각: new Date().toISOString() };
+  var updated = (_sites[idx].점검이력 || []).concat([entry]);
+  saveSite(editingId, { 점검이력: updated, 최근점검일: date, 최근점검유형: type })
+    .then(function() {
+      _sites[idx].점검이력 = updated;
+      _sites[idx].최근점검일 = date;
+      _sites[idx].최근점검유형 = type;
+      return addNotifDB('🔍 점검 등록: [' + _sites[idx].permitNo + '] ' +
+        type + ' (' + date + ') — ' + insp);
+    })
+    .then(function() {
+      showToast('✅ ' + type + ' 결과 등록 완료 (총 ' + updated.length + '회)');
+      closeModal('inspModal');
+      switchTab(currentTab);
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    공정률 업데이트 모달
 ============================================================ */
 function showUpdateModal(siteId) {
-  var site=_sites.find(function(s){return s.id===siteId;}); if(!site) return;
-  editingId=siteId;
-  document.getElementById('updateContent').innerHTML=
-    '<div class="detail-grid">'+
-    '<div class="detail-item"><label>허가번호</label><span style="font-size:.79rem">'+site.permitNo+'</span></div>'+
-    '<div class="detail-item"><label>현재 공정률</label><span style="color:#2e86c1;font-size:1.15rem">'+site.공정률+'%</span></div></div>'+
-    '<div class="form-group"><label>새 공정률(%)</label>'+
-    '<div class="slider-wrap"><input type="range" id="u_공정률" min="0" max="100" value="'+site.공정률+'" '+
-    'oninput="document.getElementById(\'u_공정률_val\').textContent=this.value+\'%\'">'+
-    '<span class="slider-val" id="u_공정률_val">'+site.공정률+'%</span></div></div>'+
-    '<div class="form-group" style="margin-top:13px"><label>공사 현황 메모 *</label>'+
-    '<textarea id="u_메모" rows="3" placeholder="예: 2층 골조공사 완료, 3층 거푸집 설치 중"></textarea></div>'+
-    '<div style="margin-top:13px;display:flex;gap:9px">'+
-    '<button type="button" class="btn-submit" onclick="submitUpdate()">📊 업데이트</button>'+
-    '<button type="button" onclick="closeModal(\'updateModal\')" style="padding:11px 17px;border:2px solid #e2e8f0;border-radius:10px;background:white;cursor:pointer;font-family:inherit">취소</button></div>';
-  document.getElementById('updateModal').classList.add('show');
+  var site = _sites.find(function(s) { return s.id === siteId; });
+  if (!site) return;
+  editingId = siteId;
+  e('updateContent').innerHTML =
+    '<div class="detail-grid">' +
+    '<div class="detail-item"><label>허가번호</label>' +
+    '<span style="font-size:.78rem">' + site.permitNo + '</span></div>' +
+    '<div class="detail-item"><label>현재 공정률</label>' +
+    '<span style="color:#2e86c1;font-size:1.1rem">' + site.공정률 + '%</span></div></div>' +
+    '<div class="form-group"><label>새 공정률(%)</label>' +
+    '<div class="slider-wrap">' +
+    '<input type="range" id="u_공정률" min="0" max="100" value="' + site.공정률 + '" ' +
+    'oninput="e(\'u_공정률_val\').textContent=this.value+\'%\'">' +
+    '<span class="slider-val" id="u_공정률_val">' + site.공정률 + '%</span></div></div>' +
+    '<div class="form-group" style="margin-top:12px"><label>공사 현황 메모 *</label>' +
+    '<textarea id="u_메모" rows="3" placeholder="예: 2층 골조공사 완료"></textarea></div>' +
+    '<div style="margin-top:12px;display:flex;gap:8px">' +
+    '<button type="button" class="btn-submit" onclick="submitUpdate()">📊 업데이트</button>' +
+    '<button type="button" onclick="closeModal(\'updateModal\')" ' +
+    'style="padding:10px 16px;border:2px solid #e2e8f0;border-radius:10px;' +
+    'background:white;cursor:pointer;font-family:inherit">취소</button></div>';
+  e('updateModal').classList.add('show');
 }
 
 function submitUpdate() {
-  var pr  =parseInt(document.getElementById('u_공정률').value);
-  var memo=document.getElementById('u_메모').value.trim();
-  if(!memo){showToast('⚠️ 메모를 입력해주세요');return;}
+  var pr   = parseInt(e('u_공정률').value);
+  var memo = gv('u_메모');
+  if (!memo) { showToast('⚠️ 메모를 입력해주세요'); return; }
   showLoading('공정률 저장 중...');
-  var idx=_sites.findIndex(function(s){return s.id===editingId;});
-  if(idx===-1){hideLoading();return;}
-  var today=new Date().toISOString().slice(0,10);
-  var entry={날짜:today,공정률:pr,내용:memo,작성자:currentUser.name};
-  var 이력=(_sites[idx].이력||[]).concat([entry]);
-  saveSite(editingId,{공정률:pr,최종업데이트:today,특이사항:memo,이력:이력}).then(function(){
-    _sites[idx].공정률=pr; _sites[idx].최종업데이트=today;
-    _sites[idx].특이사항=memo; _sites[idx].이력=이력;
-    return addNotifDB('📊 공정률 업데이트: ['+_sites[idx].permitNo+'] '+_sites[idx].companyName+' → '+pr+'%');
-  }).then(function(){
-    closeModal('updateModal');
-    showToast('✅ 공정률이 '+pr+'%로 업데이트되었습니다');
-    switchTab(currentTab);
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  var idx = _sites.findIndex(function(s) { return s.id === editingId; });
+  if (idx === -1) { hideLoading(); return; }
+  var today  = new Date().toISOString().slice(0, 10);
+  var entry  = { 날짜: today, 공정률: pr, 내용: memo, 작성자: currentUser.name };
+  var 이력   = (_sites[idx].이력 || []).concat([entry]);
+  saveSite(editingId, { 공정률: pr, 최종업데이트: today, 특이사항: memo, 이력: 이력 })
+    .then(function() {
+      _sites[idx].공정률 = pr;
+      _sites[idx].최종업데이트 = today;
+      _sites[idx].특이사항 = memo;
+      _sites[idx].이력 = 이력;
+      return addNotifDB('📊 공정률 업데이트: [' + _sites[idx].permitNo +
+        '] ' + _sites[idx].companyName + ' → ' + pr + '%');
+    })
+    .then(function() {
+      closeModal('updateModal');
+      showToast('✅ 공정률이 ' + pr + '%로 업데이트되었습니다');
+      switchTab(currentTab);
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    상세 모달
 ============================================================ */
 function showDetail(siteId) {
-  var s=_sites.find(function(x){return x.id===siteId;}); if(!s) return;
-  var days=daysDiff(s.최종업데이트);
-  var floor='지상 '+(s.지상층수||'-')+'층'+(s.지하층수?' / 지하 '+s.지하층수+'층':'');
-  var inspList=s.점검이력||[];
-  var inspSummary=inspList.length===0
-    ?'<span class="badge badge-gray">점검 이력 없음</span>'
-    :'<span class="badge badge-green">총 '+inspList.length+'회 점검</span> <small style="color:#718096">최근: '+inspList[inspList.length-1].날짜+'</small>';
-  document.getElementById('detailContent').innerHTML=
-    '<div class="detail-grid">'+
-    '<div class="detail-item"><label>허가번호</label><span style="font-size:.81rem">'+s.permitNo+'</span></div>'+
-    '<div class="detail-item"><label>업체명</label><span>'+s.companyName+'</span></div>'+
-    '<div class="detail-item"><label>주소</label><span>'+s.주소+'</span></div>'+
-    '<div class="detail-item"><label>구청</label><span>'+s.구청+'</span></div>'+
-    '<div class="detail-item"><label>건물 용도</label><span>'+s.용도+'</span></div>'+
-    '<div class="detail-item"><label>연면적</label><span>'+Number(s.연면적).toLocaleString()+' ㎡</span></div>'+
-    '<div class="detail-item"><label>층수</label><span>'+floor+'</span></div>'+
-    '<div class="detail-item"><label>위험도 점수</label><span style="font-weight:800;color:'+(calcRiskScore(s)>=60?'#e74c3c':calcRiskScore(s)>=40?'#f39c12':'#27ae60')+'">'+calcRiskScore(s)+'점</span></div>'+
-    '<div class="detail-item"><label>착공일</label><span>'+s.착공일+'</span></div>'+
-    '<div class="detail-item"><label>예정 준공일</label><span>'+(s.예정준공일||'-')+'</span></div>'+
-    '<div class="detail-item"><label>최종 업데이트</label><span>'+s.최종업데이트+' ('+days+'일 전)</span></div>'+
-    '<div class="detail-item"><label>점검 현황</label><span>'+inspSummary+'</span></div></div>'+
-    '<div style="margin:13px 0"><label style="font-size:.79rem;color:#718096;display:block;margin-bottom:4px">현재 공정률</label>'+
-    '<div class="progress-wrap" style="height:17px"><div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+Math.max(s.공정률,0)+'%"></div></div>'+
-    '<div style="font-size:1.35rem;font-weight:800;color:#1a5276;margin-top:4px">'+s.공정률+'%</div></div>'+
-    (s.특이사항?'<div style="background:#f7fafc;border-radius:10px;padding:11px;margin-bottom:13px"><div style="font-size:.75rem;color:#718096;margin-bottom:3px">📝 최근 공사 현황</div><div style="font-size:.87rem">'+s.특이사항+'</div></div>':'')+
-    '<div style="margin-bottom:13px"><div style="font-size:.87rem;font-weight:700;color:#1a5276;margin-bottom:9px">📋 공정률 이력</div>'+
-    (s.이력||[]).slice().reverse().map(function(h){
-      return '<div class="history-item"><div class="history-dot"></div><div>'+
-        '<div style="font-size:.75rem;color:#718096">'+h.날짜+' | '+h.작성자+'</div>'+
-        '<div class="history-content"><span class="badge badge-blue">'+h.공정률+'%</span>'+
-        '<span style="margin-left:6px">'+h.내용+'</span></div></div></div>';}).join('')+'</div>'+
-    '<div><div style="font-size:.87rem;font-weight:700;color:#27ae60;margin-bottom:9px">🔍 점검 이력 (총 '+inspList.length+'회)</div>'+
-    (inspList.length===0?'<div style="color:#a0aec0;font-size:.84rem;padding:7px 0">점검 이력이 없습니다</div>'
-      :'<table class="insp-table" style="min-width:unset"><tr><th>회차</th><th>점검일</th><th>유형</th><th>점검자</th><th>결과</th></tr>'+
-      inspList.map(function(r,i){return '<tr class="'+(i%2===0?'insp-row-odd':'insp-row-even')+'">'+
-        '<td><span class="badge badge-green">'+(i+1)+'차</span></td>'+
-        '<td>'+r.날짜+'</td><td>'+(r.유형||'정기점검')+'</td><td>'+r.점검자+'</td>'+
-        '<td style="text-align:left;font-size:.81rem">'+r.내용+'</td></tr>';}).join('')+'</table>')+'</div>'+
-    '<div style="margin-top:16px;display:flex;gap:7px;flex-wrap:wrap">'+
-    '<button type="button" class="insp-add-btn" onclick="closeModal(\'detailModal\');showInspModal(\''+s.id+'\')">🔍 점검 결과 등록</button>'+
-    '<button type="button" class="btn-warning" onclick="closeModal(\'detailModal\');showUpdateModal(\''+s.id+'\')">📊 공정률 업데이트</button>'+
-    (currentUser.role==='admin'?'<button type="button" class="btn-danger" onclick="doDeleteSite(\''+s.id+'\');closeModal(\'detailModal\')">🗑️ 현장 삭제</button>':'')+'</div>';
-  document.getElementById('detailModal').classList.add('show');
+  var s = _sites.find(function(x) { return x.id === siteId; });
+  if (!s) return;
+  var days      = daysDiff(s.최종업데이트);
+  var floor     = '지상 ' + (s.지상층수||'-') + '층' +
+                  (s.지하층수 ? ' / 지하 ' + s.지하층수 + '층' : '');
+  var inspList  = s.점검이력 || [];
+  var score     = calcRiskScore(s);
+  var scoreColor = score >= 60 ? '#e74c3c' : score >= 40 ? '#f39c12' : '#27ae60';
+
+  e('detailContent').innerHTML =
+    '<div class="detail-grid">' +
+    '<div class="detail-item"><label>허가번호</label><span style="font-size:.8rem">' + s.permitNo + '</span></div>' +
+    '<div class="detail-item"><label>업체명</label><span>' + s.companyName + '</span></div>' +
+    '<div class="detail-item"><label>주소</label><span>' + s.주소 + '</span></div>' +
+    '<div class="detail-item"><label>구청</label><span>' + s.구청 + '</span></div>' +
+    '<div class="detail-item"><label>용도</label><span>' + s.용도 + '</span></div>' +
+    '<div class="detail-item"><label>연면적</label><span>' + Number(s.연면적).toLocaleString() + ' ㎡</span></div>' +
+    '<div class="detail-item"><label>층수</label><span>' + floor + '</span></div>' +
+    '<div class="detail-item"><label>위험도</label>' +
+    '<span style="font-weight:800;color:' + scoreColor + '">' + score + '점</span></div>' +
+    '<div class="detail-item"><label>착공일</label><span>' + s.착공일 + '</span></div>' +
+    '<div class="detail-item"><label>예정 준공일</label><span>' + (s.예정준공일||'-') + '</span></div>' +
+    '<div class="detail-item"><label>최종 업데이트</label><span>' + s.최종업데이트 + ' (' + days + '일 전)</span></div>' +
+    '<div class="detail-item"><label>점검 현황</label>' +
+    '<span class="badge ' + (inspList.length > 0 ? 'badge-green' : 'badge-gray') + '">총 ' + inspList.length + '회</span></div></div>' +
+    '<div style="margin:12px 0">' +
+    '<label style="font-size:.77rem;color:#718096;display:block;margin-bottom:4px">현재 공정률</label>' +
+    '<div class="progress-wrap" style="height:16px">' +
+    '<div class="progress-bar ' + getProgressClass(s.공정률) +
+    '" style="width:' + Math.max(s.공정률, 0) + '%"></div></div>' +
+    '<div style="font-size:1.3rem;font-weight:800;color:#1a5276;margin-top:4px">' + s.공정률 + '%</div></div>' +
+    (s.특이사항 ? '<div style="background:#f7fafc;border-radius:10px;padding:10px;margin-bottom:12px">' +
+      '<div style="font-size:.73rem;color:#718096;margin-bottom:3px">📝 최근 공사 현황</div>' +
+      '<div style="font-size:.85rem">' + s.특이사항 + '</div></div>' : '') +
+    '<div style="margin-bottom:12px"><div style="font-size:.85rem;font-weight:700;color:#1a5276;margin-bottom:8px">📋 공정률 이력</div>' +
+    (s.이력 || []).slice().reverse().map(function(h) {
+      return '<div class="history-item"><div class="history-dot"></div><div>' +
+        '<div style="font-size:.73rem;color:#718096">' + h.날짜 + ' | ' + h.작성자 + '</div>' +
+        '<div class="history-content"><span class="badge badge-blue">' + h.공정률 + '%</span>' +
+        '<span style="margin-left:6px">' + h.내용 + '</span></div></div></div>';
+    }).join('') + '</div>' +
+    '<div><div style="font-size:.85rem;font-weight:700;color:#27ae60;margin-bottom:8px">🔍 점검 이력 (' + inspList.length + '회)</div>' +
+    (inspList.length === 0 ? '<div style="color:#a0aec0;font-size:.83rem">점검 이력 없음</div>'
+      : '<div class="table-wrap"><table class="insp-table"><tr><th>회차</th><th>점검일</th><th>유형</th><th>점검자</th><th>결과</th></tr>' +
+        inspList.map(function(r, i) {
+          return '<tr><td><span class="badge badge-green">' + (i+1) + '차</span></td>' +
+            '<td>' + r.날짜 + '</td><td>' + (r.유형||'정기점검') + '</td><td>' + r.점검자 + '</td>' +
+            '<td style="text-align:left;font-size:.79rem">' + r.내용 + '</td></tr>';
+        }).join('') + '</table></div>') + '</div>' +
+    '<div style="margin-top:15px;display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button type="button" class="insp-add-btn" ' +
+    'onclick="closeModal(\'detailModal\');showInspModal(\'' + s.id + '\')">🔍 점검 등록</button>' +
+    '<button type="button" class="btn-warning" ' +
+    'onclick="closeModal(\'detailModal\');showUpdateModal(\'' + s.id + '\')">📊 공정률</button>' +
+    (currentUser.role === 'admin'
+      ? '<button type="button" class="btn-danger" ' +
+        'onclick="doDeleteSite(\'' + s.id + '\');closeModal(\'detailModal\')">🗑️ 삭제</button>'
+      : '') + '</div>';
+  e('detailModal').classList.add('show');
 }
 
 /* ============================================================
    현장 삭제
 ============================================================ */
 function doDeleteSite(siteId) {
-  if(!confirm('이 현장을 삭제하시겠습니까?')) return;
+  if (!confirm('이 현장을 삭제하시겠습니까?')) return;
   showLoading('삭제 중...');
-  var s=_sites.find(function(x){return x.id===siteId;});
-  deleteSiteDB(siteId).then(function(){
-    _sites=_sites.filter(function(x){return x.id!==siteId;});
-    showToast('🗑️ ['+(s?s.permitNo:'')+'] 삭제되었습니다');
-    switchTab(currentTab);
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  var s = _sites.find(function(x) { return x.id === siteId; });
+  deleteSiteDB(siteId)
+    .then(function() {
+      _sites = _sites.filter(function(x) { return x.id !== siteId; });
+      showToast('🗑️ 삭제되었습니다');
+      switchTab(currentTab);
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    현장 등록
 ============================================================ */
 function renderRegister() {
-  var isAdmin=currentUser.role==='admin';
-  var companySelect=isAdmin
-    ?'<div class="form-group"><label>업체 선택 *</label>'+
-      '<select id="r_companyId" onchange="document.getElementById(\'r_업체명\').value=(_companies[this.value]||{}).name||\'\'">'+
-      '<option value="">-- 업체 선택 --</option>'+
-      Object.values(_companies).map(function(c){return '<option value="'+c.id+'">'+c.name+'</option>';}).join('')+
-      '</select></div>'+
-      '<div class="form-group"><label>업체명</label><input type="text" id="r_업체명" readonly style="background:#f7fafc"></div>'
-    :'<div class="form-group"><label>업체명</label><input type="text" id="r_업체명" value="'+currentUser.name+'" readonly style="background:#f7fafc"></div>';
-  return '<div class="card"><div class="card-title">➕ 공사 현장 신규 등록</div>'+
-    '<div class="form-grid">'+companySelect+
-    '<div class="form-group"><label>허가(신고)번호 * <small style="color:#718096;font-weight:400">예: 2025-건축정책과-증축신고-175</small></label>'+
-    '<input type="text" id="r_permitNo" placeholder="허가번호를 직접 입력하세요"></div>'+
-    '<div class="form-group"><label>주소 *</label><input type="text" id="r_주소" placeholder="화성시 ○○읍(동) ○○○-○"></div>'+
-    '<div class="form-group"><label>구청 *</label><select id="r_구청"><option value="">선택</option>'+
-    '<option>만세구청</option><option>효행구청</option><option>병점구청</option><option>동탄구청</option></select></div>'+
-    '<div class="form-group"><label>건물 용도 *</label><select id="r_용도"><option value="">선택</option>'+
-    '<option>단독주택</option><option>다세대주택</option><option>다가구주택</option>'+
-    '<option>근린생활시설</option><option>업무시설</option><option>공장</option><option>창고</option><option>기타</option></select></div>'+
-    '<div class="form-group"><label>연면적(㎡) *</label><input type="number" id="r_연면적" placeholder="예: 245.6" step="0.1" min="0"></div>'+
-    '<div class="form-group"><label>지상 층수 *</label><div class="floor-input-row">'+
-    '<input type="number" id="r_지상층수" placeholder="예: 3" min="1" max="99"><span>층</span></div></div>'+
-    '<div class="form-group"><label>지하 층수</label><div class="floor-input-row">'+
-    '<input type="number" id="r_지하층수" placeholder="0" min="0" max="20"><span>층 (없으면 0)</span></div></div>'+
-    '<div class="form-group"><label>착공일 *</label><input type="date" id="r_착공일"></div>'+
-    '<div class="form-group"><label>예정 준공일</label><input type="date" id="r_예정준공일"></div>'+
-    '<div class="form-group"><label>현재 공정률(%)</label>'+
-    '<div class="slider-wrap"><input type="range" id="r_공정률" min="0" max="100" value="0" '+
-    'oninput="document.getElementById(\'r_공정률_val\').textContent=this.value+\'%\'">'+
-    '<span class="slider-val" id="r_공정률_val">0%</span></div></div>'+
-    '<div class="form-group form-full"><label>특이사항</label>'+
-    '<textarea id="r_특이사항" placeholder="공사 현황, 특이사항 등"></textarea></div></div>'+
-    '<div style="margin-top:16px"><button type="button" class="btn-submit" onclick="submitRegister()">🏗️ 현장 등록하기</button></div></div>';
+  var isAdmin = currentUser.role === 'admin';
+  var compSel = isAdmin
+    ? '<div class="form-group"><label>업체 선택 *</label>' +
+      '<select id="r_companyId" onchange="var c=_companies[this.value];' +
+      'if(c)e(\'r_업체명\').value=c.name">' +
+      '<option value="">-- 업체 선택 --</option>' +
+      Object.values(_companies).map(function(c) {
+        return '<option value="' + c.id + '">' + c.name + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="form-group"><label>업체명</label>' +
+      '<input type="text" id="r_업체명" readonly style="background:#f7fafc"></div>'
+    : '<div class="form-group"><label>업체명</label>' +
+      '<input type="text" id="r_업체명" value="' + currentUser.name +
+      '" readonly style="background:#f7fafc"></div>';
+
+  return '<div class="card"><div class="card-title">➕ 공사 현장 신규 등록</div>' +
+    '<div class="form-grid">' + compSel +
+    '<div class="form-group form-full"><label>허가(신고)번호 *' +
+    '<small style="color:#718096;font-weight:400"> 예: 2025-건축정책과-증축신고-175</small></label>' +
+    '<input type="text" id="r_permitNo" placeholder="허가번호를 직접 입력"></div>' +
+    '<div class="form-group"><label>주소 *</label>' +
+    '<input type="text" id="r_주소" placeholder="화성시 ○○읍(동) ○○○-○"></div>' +
+    '<div class="form-group"><label>구청 *</label><select id="r_구청">' +
+    '<option value="">선택</option><option>만세구청</option><option>효행구청</option>' +
+    '<option>병점구청</option><option>동탄구청</option></select></div>' +
+    '<div class="form-group"><label>건물 용도 *</label><select id="r_용도">' +
+    '<option value="">선택</option><option>단독주택</option><option>다세대주택</option>' +
+    '<option>다가구주택</option><option>근린생활시설</option><option>업무시설</option>' +
+    '<option>공장</option><option>창고</option><option>기타</option></select></div>' +
+    '<div class="form-group"><label>연면적(㎡) *</label>' +
+    '<input type="number" id="r_연면적" placeholder="예: 245.6" step="0.1" min="0"></div>' +
+    '<div class="form-group"><label>지상 층수 *</label>' +
+    '<input type="number" id="r_지상층수" placeholder="예: 3" min="1" max="99"></div>' +
+    '<div class="form-group"><label>지하 층수</label>' +
+    '<input type="number" id="r_지하층수" placeholder="없으면 0" min="0" max="20"></div>' +
+    '<div class="form-group"><label>착공일 *</label>' +
+    '<input type="date" id="r_착공일"></div>' +
+    '<div class="form-group"><label>예정 준공일</label>' +
+    '<input type="date" id="r_예정준공일"></div>' +
+    '<div class="form-group"><label>현재 공정률(%)</label>' +
+    '<div class="slider-wrap">' +
+    '<input type="range" id="r_공정률" min="0" max="100" value="0" ' +
+    'oninput="e(\'r_공정률_val\').textContent=this.value+\'%\'">' +
+    '<span class="slider-val" id="r_공정률_val">0%</span></div></div>' +
+    '<div class="form-group form-full"><label>특이사항</label>' +
+    '<textarea id="r_특이사항" placeholder="공사 현황, 특이사항 등"></textarea></div></div>' +
+    '<div style="margin-top:15px">' +
+    '<button type="button" class="btn-submit" onclick="submitRegister()">🏗️ 현장 등록하기</button>' +
+    '</div></div>';
 }
 
 function submitRegister() {
-  function g(id){var el=document.getElementById(id);return el?el.value.trim():'';}
-  var isAdmin=currentUser.role==='admin';
+  var isAdmin = currentUser.role === 'admin';
   var companyId, companyName;
-  if(isAdmin){
-    companyId=g('r_companyId'); if(!companyId){showToast('⚠️ 업체를 선택하세요');return;}
-    companyName=(_companies[companyId]||{}).name||'';
-  } else { companyId=currentUser.companyId; companyName=currentUser.name; }
-  var req=['r_permitNo','r_주소','r_구청','r_용도','r_연면적','r_지상층수','r_착공일'];
-  if(req.some(function(id){return !g(id);})){showToast('⚠️ 필수 항목을 모두 입력해주세요');return;}
-  var permitNo=g('r_permitNo');
-  if(_sites.find(function(s){return s.permitNo===permitNo;})){showToast('⚠️ 이미 등록된 허가번호입니다');return;}
+  if (isAdmin) {
+    companyId = gv('r_companyId');
+    if (!companyId) { showToast('⚠️ 업체를 선택하세요'); return; }
+    companyName = (_companies[companyId] || {}).name || '';
+  } else {
+    companyId   = currentUser.companyId;
+    companyName = currentUser.name;
+  }
+  var req = ['r_permitNo','r_주소','r_구청','r_용도','r_연면적','r_지상층수','r_착공일'];
+  if (req.some(function(id) { return !gv(id); })) {
+    showToast('⚠️ 필수 항목을 모두 입력해주세요'); return;
+  }
+  var permitNo = gv('r_permitNo');
+  if (_sites.find(function(s) { return s.permitNo === permitNo; })) {
+    showToast('⚠️ 이미 등록된 허가번호입니다'); return;
+  }
   showLoading('현장 등록 중...');
-  var pr=parseInt(document.getElementById('r_공정률').value);
-  var today=new Date().toISOString().slice(0,10);
-  var sid=genId();
-  var ns={
-    id:sid, companyId:companyId, companyName:companyName, permitNo:permitNo,
-    주소:g('r_주소'), 구청:g('r_구청'), 용도:g('r_용도'),
-    연면적:parseFloat(g('r_연면적')),
-    지상층수:parseInt(g('r_지상층수'))||0, 지하층수:parseInt(g('r_지하층수'))||0,
-    착공일:g('r_착공일'), 예정준공일:g('r_예정준공일'),
-    공정률:pr, 특이사항:g('r_특이사항'),
-    이력:[{날짜:today,공정률:pr,내용:'최초 등록',작성자:companyName}],
-    점검이력:[], 최근점검일:'', 최근점검유형:'',
-    등록일:today, 최종업데이트:today
+  var pr    = parseInt(e('r_공정률').value);
+  var today = new Date().toISOString().slice(0, 10);
+  var sid   = genId();
+  var ns = {
+    id: sid, companyId: companyId, companyName: companyName, permitNo: permitNo,
+    주소: gv('r_주소'), 구청: gv('r_구청'), 용도: gv('r_용도'),
+    연면적: parseFloat(gv('r_연면적')),
+    지상층수: parseInt(gv('r_지상층수')) || 0,
+    지하층수: parseInt(gv('r_지하층수')) || 0,
+    착공일: gv('r_착공일'), 예정준공일: gv('r_예정준공일'),
+    공정률: pr, 특이사항: gv('r_특이사항'),
+    이력: [{ 날짜: today, 공정률: pr, 내용: '최초 등록', 작성자: companyName }],
+    점검이력: [], 최근점검일: '', 최근점검유형: '',
+    등록일: today, 최종업데이트: today
   };
-  saveSite(sid,ns).then(function(){
-    _sites.unshift(ns);
-    return addNotifDB('🆕 새 공사장 등록: ['+permitNo+'] '+companyName+' ('+g('r_주소')+')');
-  }).then(function(){
-    showToast('✅ 현장이 등록되었습니다!');
-    switchTab(currentUser.role==='admin'?'allSites':'mySites');
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  saveSite(sid, ns)
+    .then(function() {
+      _sites.unshift(ns);
+      return addNotifDB('🆕 새 공사장 등록: [' + permitNo + '] ' +
+        companyName + ' (' + gv('r_주소') + ')');
+    })
+    .then(function() {
+      showToast('✅ 현장이 등록되었습니다!');
+      switchTab(currentUser.role === 'admin' ? 'allSites' : 'mySites');
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    시공업체: 내 공사장
 ============================================================ */
 function renderMySites() {
-  var sites=_sites.filter(function(s){return s.companyId===currentUser.companyId;});
-  if(!sites.length) return '<div class="card"><div class="card-title">🏗️ 내 공사장 현황</div>'+
-    '<div class="empty-state"><div class="icon">🏗️</div><p>등록된 공사장이 없습니다</p>'+
-    '<button type="button" class="btn-submit" style="margin-top:13px" onclick="switchTab(\'register\')">➕ 공사장 등록하기</button></div></div>';
-  return '<div class="card"><div class="card-title">🏗️ 내 공사장 현황 ('+sites.length+'건)'+
-    '<button type="button" class="btn-success" style="margin-left:auto;font-size:.82rem" onclick="switchTab(\'register\')">➕ 공사 추가 등록</button></div>'+
-    sites.map(function(s){
-      var days=daysDiff(s.최종업데이트);
-      var inspList=s.점검이력||[];
-      var floor='지상 '+(s.지상층수||'-')+'층'+(s.지하층수?' / 지하 '+s.지하층수+'층':'');
-      return '<div class="site-card">'+
-        '<div class="site-card-header">'+
-        '<div><div class="site-card-title">📌 '+s.permitNo+'</div>'+
-        '<div class="site-card-sub">'+s.주소+' · '+s.구청+'</div></div>'+
-        '<div class="site-card-actions">'+
-        '<button class="btn-info" onclick="showDetail(\''+s.id+'\')">상세보기</button>'+
-        '<button class="btn-warning" onclick="showUpdateModal(\''+s.id+'\')">📊 공정률</button>'+
-        '<button class="insp-add-btn" onclick="showInspModal(\''+s.id+'\')">🔍 점검 등록</button>'+
-        '</div></div>'+
-        '<div class="progress-wrap" style="height:15px;margin-bottom:5px">'+
-        '<div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+Math.max(s.공정률,0)+'%"></div></div>'+
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;flex-wrap:wrap;gap:5px">'+
-        '<strong style="font-size:1.08rem;color:#1a5276">'+s.공정률+'%</strong>'+
-        getStatusBadge(s)+
-        '<small class="badge '+(inspList.length>0?'badge-green':'badge-gray')+'">점검 '+inspList.length+'회</small>'+
-        '<small style="color:'+(days>30?'#e74c3c':'#718096')+'">최종 '+s.최종업데이트+' ('+days+'일 전)</small></div>'+
-        '<div class="site-card-info">'+
-        '<div class="site-info-item"><div class="site-info-label">건물 용도</div><div class="site-info-value">'+s.용도+'</div></div>'+
-        '<div class="site-info-item"><div class="site-info-label">연면적</div><div class="site-info-value">'+Number(s.연면적).toLocaleString()+' ㎡</div></div>'+
-        '<div class="site-info-item"><div class="site-info-label">층수</div><div class="site-info-value">'+floor+'</div></div>'+
-        '<div class="site-info-item"><div class="site-info-label">착공일</div><div class="site-info-value">'+s.착공일+'</div></div>'+
-        (s.최근점검일?'<div class="site-info-item"><div class="site-info-label">최근 점검일</div><div class="site-info-value">'+s.최근점검일+'</div></div>':'')+'</div>'+
-        (s.특이사항?'<div style="margin-top:9px;padding:9px;background:#f7fafc;border-radius:8px;font-size:.81rem;color:#4a5568">📝 '+s.특이사항+'</div>':'')+
+  var sites = _sites.filter(function(s) {
+    return s.companyId === currentUser.companyId;
+  });
+  if (!sites.length) {
+    return '<div class="card"><div class="card-title">🏗️ 내 공사장 현황</div>' +
+      '<div class="empty-state"><div class="icon">🏗️</div><p>등록된 공사장이 없습니다</p>' +
+      '<button type="button" class="btn-submit" style="margin-top:12px" ' +
+      'onclick="switchTab(\'register\')">➕ 공사장 등록하기</button></div></div>';
+  }
+  return '<div class="card"><div class="card-title">🏗️ 내 공사장 현황 (' + sites.length + '건)' +
+    '<button type="button" class="btn-success" style="margin-left:auto;font-size:.8rem" ' +
+    'onclick="switchTab(\'register\')">➕ 추가 등록</button></div>' +
+    sites.map(function(s) {
+      var days = daysDiff(s.최종업데이트);
+      var inspCnt = (s.점검이력 || []).length;
+      var floor = '지상 ' + (s.지상층수||'-') + '층' +
+                  (s.지하층수 ? '/지하' + s.지하층수 + '층' : '');
+      return '<div class="site-card">' +
+        '<div class="site-card-header">' +
+        '<div><div class="site-card-title">📌 ' + s.permitNo + '</div>' +
+        '<div class="site-card-sub">' + s.주소 + ' · ' + s.구청 + '</div></div>' +
+        '<div class="site-card-actions">' +
+        '<button class="btn-info" onclick="showDetail(\'' + s.id + '\')">상세</button>' +
+        '<button class="btn-warning" onclick="showUpdateModal(\'' + s.id + '\')">📊</button>' +
+        '<button class="insp-add-btn" onclick="showInspModal(\'' + s.id + '\')">🔍 점검</button>' +
+        '</div></div>' +
+        '<div class="progress-wrap" style="height:14px;margin-bottom:5px">' +
+        '<div class="progress-bar ' + getProgressClass(s.공정률) +
+        '" style="width:' + Math.max(s.공정률, 0) + '%"></div></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;' +
+        'margin-bottom:8px;flex-wrap:wrap;gap:4px">' +
+        '<strong style="font-size:1.05rem;color:#1a5276">' + s.공정률 + '%</strong>' +
+        getStatusBadge(s) +
+        '<span class="badge ' + (inspCnt > 0 ? 'badge-green' : 'badge-gray') + '">점검 ' + inspCnt + '회</span>' +
+        '<small style="color:' + (days > 30 ? '#e74c3c' : '#718096') + '">' +
+        s.최종업데이트 + ' (' + days + '일 전)</small></div>' +
+        '<div class="site-card-info">' +
+        '<div class="site-info-item"><div class="site-info-label">용도</div>' +
+        '<div class="site-info-value">' + s.용도 + '</div></div>' +
+        '<div class="site-info-item"><div class="site-info-label">연면적</div>' +
+        '<div class="site-info-value">' + Number(s.연면적).toLocaleString() + '㎡</div></div>' +
+        '<div class="site-info-item"><div class="site-info-label">층수</div>' +
+        '<div class="site-info-value">' + floor + '</div></div>' +
+        '<div class="site-info-item"><div class="site-info-label">착공일</div>' +
+        '<div class="site-info-value">' + s.착공일 + '</div></div>' +
+        (s.최근점검일 ? '<div class="site-info-item"><div class="site-info-label">최근 점검</div>' +
+        '<div class="site-info-value">' + s.최근점검일 + '</div></div>' : '') + '</div>' +
+        (s.특이사항 ? '<div style="margin-top:8px;padding:8px;background:#f7fafc;' +
+        'border-radius:8px;font-size:.8rem;color:#4a5568">📝 ' + s.특이사항 + '</div>' : '') +
         '</div>';
-    }).join('')+'</div>';
+    }).join('') + '</div>';
 }
 
 /* ============================================================
    관리자: 대시보드
 ============================================================ */
 function renderDashboard() {
-  var sites=_sites;
-  var total=sites.length, active=sites.filter(function(s){return s.공정률>0&&s.공정률<100;}).length;
-  var notStarted=sites.filter(function(s){return s.공정률===0;}).length;
-  var done=sites.filter(function(s){return s.공정률===100;}).length;
-  var needInspect=sites.filter(function(s){return s.공정률>=30&&s.공정률<=80;}).length;
-  var longIdle=sites.filter(function(s){return s.공정률===0&&daysDiff(s.최종업데이트)>30;}).length;
-  var delayUp=sites.filter(function(s){return s.공정률<100&&daysDiff(s.최종업데이트)>30&&s.공정률>0;}).length;
-  var totalInsp=sites.reduce(function(acc,s){return acc+(s.점검이력||[]).length;},0);
-  var byType={}, byDist={};
-  sites.forEach(function(s){byType[s.용도]=(byType[s.용도]||0)+1; byDist[s.구청]=(byDist[s.구청]||0)+1;});
-  var maxT=Math.max.apply(null,Object.values(byType).concat([1]));
-  var maxD=Math.max.apply(null,Object.values(byDist).concat([1]));
-  var thisMonth=sites.filter(function(s){return s.공정률>=30&&s.공정률<=80;});
-  var info=_adminInfo, pwWarn='';
-  if(info){var d=Math.floor((Date.now()-(info.pwChangedAt||info.createdAt))/86400000);
-    if(d>90) pwWarn='<div class="pw-expire-banner" style="margin-bottom:13px">🔒 관리자 비밀번호를 변경한 지 <strong>'+d+'일</strong>이 지났습니다. <span style="text-decoration:underline;cursor:pointer" onclick="switchTab(\'security\')">보안 설정으로 이동 →</span></div>';}
-  var month=new Date().getMonth()+1;
-  var activeSeason=SEASONS.filter(function(s){return s.months.indexOf(month)>=0;});
-  var seasonHtml=activeSeason.length
-    ?'<div class="card"><div class="card-title">🌡️ 현재 시즌 안전 알림</div>'+
-      '<div style="display:flex;gap:9px;flex-wrap:wrap">'+
-      activeSeason.map(function(s){return '<button type="button" class="btn-warning" onclick="adminSendSeasonPopup(\''+s.id+'\')">'+s.icon+' '+s.name+' 팝업 미리보기</button>';}).join('')+'</div>'+
-      '<p style="font-size:.79rem;color:#718096;margin-top:9px">※ 시공업체 접속 시 해당 시즌 팝업이 자동 표시됩니다 (월 1회)</p></div>':'';
-  return pwWarn+
-    '<div class="stats-grid">'+
-    '<div class="stat-card"><div class="stat-num">'+total+'</div><div class="stat-label">📋 전체 현장</div></div>'+
-    '<div class="stat-card success"><div class="stat-num">'+active+'</div><div class="stat-label">🔨 공사 진행 중</div></div>'+
-    '<div class="stat-card danger"><div class="stat-num">'+notStarted+'</div><div class="stat-label">⏸️ 미착공</div></div>'+
-    '<div class="stat-card info"><div class="stat-num">'+done+'</div><div class="stat-label">✅ 완공</div></div>'+
-    '<div class="stat-card warning"><div class="stat-num">'+needInspect+'</div><div class="stat-label">🔍 점검 권장</div></div>'+
-    '<div class="stat-card danger"><div class="stat-num">'+longIdle+'</div><div class="stat-label">⚠️ 장기 미착공</div></div>'+
-    '<div class="stat-card warning"><div class="stat-num">'+delayUp+'</div><div class="stat-label">📅 업데이트 지연</div></div>'+
-    '<div class="stat-card success"><div class="stat-num">'+totalInsp+'</div><div class="stat-label">🔍 누적 점검 건수</div></div></div>'+
-    (longIdle>0?'<div class="alert-banner alert-danger">⚠️ <strong>장기 미착공 '+longIdle+'건</strong></div>':'')+
-    (delayUp>0?'<div class="alert-banner alert-warn">📅 <strong>업데이트 지연 '+delayUp+'건</strong></div>':'')+
-    (needInspect>0?'<div class="alert-banner alert-new">🔍 <strong>점검 권장 '+needInspect+'건</strong></div>':'')+
-    '<div class="chart-row">'+
-    '<div class="mini-chart"><div class="mini-chart-title">🏠 용도별</div>'+
-    Object.entries(byType).map(function(e){return '<div class="bar-chart-item"><div class="bar-chart-label"><span>'+e[0]+'</span><span>'+e[1]+'건</span></div><div class="bar-chart-bar" style="width:'+Math.round(e[1]/maxT*100)+'%"></div></div>';}).join('')+'</div>'+
-    '<div class="mini-chart"><div class="mini-chart-title">🏛️ 구청별</div>'+
-    Object.entries(byDist).map(function(e){return '<div class="bar-chart-item"><div class="bar-chart-label"><span>'+e[0]+'</span><span>'+e[1]+'건</span></div><div class="bar-chart-bar" style="width:'+Math.round(e[1]/maxD*100)+'%;background:linear-gradient(90deg,#27ae60,#1e8449)"></div></div>';}).join('')+'</div></div>'+
-    seasonHtml+
-    '<div class="card"><div class="card-title">🗓️ 이번 달 점검 권장 현장 (공정률 30~80%)</div>'+
-    (thisMonth.length===0?'<div class="empty-state"><div class="icon">✅</div>점검 권장 현장이 없습니다</div>'
-      :'<div class="table-wrap"><table><tr><th>허가번호</th><th>업체명</th><th>주소</th><th>용도</th><th>공정률</th><th>점검횟수</th><th>최근점검</th><th>관리</th></tr>'+
-      thisMonth.map(function(s){return '<tr>'+
-        '<td><small style="color:#2e86c1;cursor:pointer" onclick="showDetail(\''+s.id+'\')">'+s.permitNo+'</small></td>'+
-        '<td>'+s.companyName+'</td><td style="text-align:left">'+s.주소+'</td><td>'+s.용도+'</td>'+
-        '<td><div class="progress-wrap"><div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+s.공정률+'%"></div></div><small>'+s.공정률+'%</small></td>'+
-        '<td><span class="badge '+((s.점검이력||[]).length>0?'badge-green':'badge-gray')+'">'+(s.점검이력||[]).length+'회</span></td>'+
-        '<td><small>'+(s.최근점검일||'없음')+'</small></td>'+
-        '<td><button class="btn-info" onclick="showDetail(\''+s.id+'\')">상세</button>'+
-        '<button class="insp-add-btn" style="font-size:.75rem;padding:4px 8px" onclick="showInspModal(\''+s.id+'\')">점검등록</button></td></tr>';}).join('')+
-      '</table></div>')+'</div>';
+  var sites = _sites;
+  var total = sites.length;
+  var active = sites.filter(function(s) { return s.공정률 > 0 && s.공정률 < 100; }).length;
+  var notStarted = sites.filter(function(s) { return s.공정률 === 0; }).length;
+  var done = sites.filter(function(s) { return s.공정률 === 100; }).length;
+  var needInspect = sites.filter(function(s) { return s.공정률 >= 30 && s.공정률 <= 80; }).length;
+  var longIdle = sites.filter(function(s) { return s.공정률 === 0 && daysDiff(s.최종업데이트) > 30; }).length;
+  var delayUp = sites.filter(function(s) { return s.공정률 < 100 && daysDiff(s.최종업데이트) > 30 && s.공정률 > 0; }).length;
+  var totalInsp = sites.reduce(function(a, s) { return a + (s.점검이력 || []).length; }, 0);
+  var byType = {}, byDist = {};
+  sites.forEach(function(s) {
+    byType[s.용도] = (byType[s.용도] || 0) + 1;
+    byDist[s.구청] = (byDist[s.구청] || 0) + 1;
+  });
+  var maxT = Math.max.apply(null, Object.values(byType).concat([1]));
+  var maxD = Math.max.apply(null, Object.values(byDist).concat([1]));
+  var thisMonth = sites.filter(function(s) { return s.공정률 >= 30 && s.공정률 <= 80; });
+  var info = _adminInfo, pwWarn = '';
+  if (info) {
+    var d = Math.floor((Date.now() - (info.pwChangedAt || info.createdAt)) / 86400000);
+    if (d > 90) pwWarn = '<div class="pw-expire-banner" style="margin-bottom:12px">' +
+      '🔒 관리자 비밀번호를 변경한 지 <strong>' + d + '일</strong>이 지났습니다. ' +
+      '<span style="text-decoration:underline;cursor:pointer" ' +
+      'onclick="switchTab(\'security\')">보안 설정 →</span></div>';
+  }
+  var month = new Date().getMonth() + 1;
+  var activeSeason = SEASONS.filter(function(s) { return s.months.indexOf(month) >= 0; });
+  var seasonHtml = activeSeason.length
+    ? '<div class="card"><div class="card-title">🌡️ 현재 시즌 안전 알림</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      activeSeason.map(function(s) {
+        return '<button type="button" class="btn-warning" ' +
+          'onclick="adminSendSeasonPopup(\'' + s.id + '\')">' +
+          s.icon + ' ' + s.name + ' 팝업 미리보기</button>';
+      }).join('') + '</div>' +
+      '<p style="font-size:.77rem;color:#718096;margin-top:8px">' +
+      '※ 시공업체 접속 시 해당 시즌 팝업이 자동 표시됩니다 (월 1회)</p></div>' : '';
+
+  return pwWarn +
+    '<div class="stats-grid">' +
+    '<div class="stat-card"><div class="stat-num">' + total + '</div><div class="stat-label">📋 전체 현장</div></div>' +
+    '<div class="stat-card success"><div class="stat-num">' + active + '</div><div class="stat-label">🔨 공사 진행 중</div></div>' +
+    '<div class="stat-card danger"><div class="stat-num">' + notStarted + '</div><div class="stat-label">⏸️ 미착공</div></div>' +
+    '<div class="stat-card info"><div class="stat-num">' + done + '</div><div class="stat-label">✅ 완공</div></div>' +
+    '<div class="stat-card warning"><div class="stat-num">' + needInspect + '</div><div class="stat-label">🔍 점검 권장</div></div>' +
+    '<div class="stat-card danger"><div class="stat-num">' + longIdle + '</div><div class="stat-label">⚠️ 장기 미착공</div></div>' +
+    '<div class="stat-card warning"><div class="stat-num">' + delayUp + '</div><div class="stat-label">📅 업데이트 지연</div></div>' +
+    '<div class="stat-card success"><div class="stat-num">' + totalInsp + '</div><div class="stat-label">🔍 누적 점검</div></div></div>' +
+    (longIdle > 0 ? '<div class="alert-banner alert-danger">⚠️ <strong>장기 미착공 ' + longIdle + '건</strong></div>' : '') +
+    (delayUp > 0 ? '<div class="alert-banner alert-warn">📅 <strong>업데이트 지연 ' + delayUp + '건</strong></div>' : '') +
+    (needInspect > 0 ? '<div class="alert-banner alert-new">🔍 <strong>점검 권장 ' + needInspect + '건</strong></div>' : '') +
+    '<div class="chart-row">' +
+    '<div class="mini-chart"><div class="mini-chart-title">🏠 용도별</div>' +
+    Object.entries(byType).map(function(en) {
+      return '<div class="bar-chart-item"><div class="bar-chart-label"><span>' + en[0] + '</span><span>' + en[1] + '건</span></div>' +
+        '<div class="bar-chart-bar" style="width:' + Math.round(en[1]/maxT*100) + '%"></div></div>';
+    }).join('') + '</div>' +
+    '<div class="mini-chart"><div class="mini-chart-title">🏛️ 구청별</div>' +
+    Object.entries(byDist).map(function(en) {
+      return '<div class="bar-chart-item"><div class="bar-chart-label"><span>' + en[0] + '</span><span>' + en[1] + '건</span></div>' +
+        '<div class="bar-chart-bar" style="width:' + Math.round(en[1]/maxD*100) + '%;background:linear-gradient(90deg,#27ae60,#1e8449)"></div></div>';
+    }).join('') + '</div></div>' +
+    seasonHtml +
+    '<div class="card"><div class="card-title">🗓️ 이번 달 점검 권장 현장 (공정률 30~80%)</div>' +
+    (thisMonth.length === 0
+      ? '<div class="empty-state"><div class="icon">✅</div>점검 권장 현장이 없습니다</div>'
+      : '<div class="table-wrap"><table><tr><th>허가번호</th><th>업체명</th><th>주소</th>' +
+        '<th>용도</th><th>공정률</th><th>점검횟수</th><th>관리</th></tr>' +
+        thisMonth.map(function(s) {
+          return '<tr><td><small style="color:#2e86c1;cursor:pointer" ' +
+            'onclick="showDetail(\'' + s.id + '\')">' + s.permitNo + '</small></td>' +
+            '<td>' + s.companyName + '</td><td style="text-align:left">' + s.주소 + '</td>' +
+            '<td>' + s.용도 + '</td>' +
+            '<td><div class="progress-wrap"><div class="progress-bar ' + getProgressClass(s.공정률) +
+            '" style="width:' + s.공정률 + '%"></div></div><small>' + s.공정률 + '%</small></td>' +
+            '<td><span class="badge ' + ((s.점검이력||[]).length > 0 ? 'badge-green' : 'badge-gray') + '">' +
+            (s.점검이력||[]).length + '회</span></td>' +
+            '<td><button class="btn-info" onclick="showDetail(\'' + s.id + '\')">상세</button>' +
+            '<button class="insp-add-btn" style="font-size:.73rem;padding:4px 7px" ' +
+            'onclick="showInspModal(\'' + s.id + '\')">점검</button></td></tr>';
+        }).join('') + '</table></div>') + '</div>';
 }
 
 /* ============================================================
    관리자: 전체 현장
 ============================================================ */
 function renderAllSites(filter) {
-  filter=filter||{};
-  var sites=_sites.slice();
-  if(filter.구청)  sites=sites.filter(function(s){return s.구청===filter.구청;});
-  if(filter.용도)  sites=sites.filter(function(s){return s.용도===filter.용도;});
-  if(filter.상태){
-    if(filter.상태==='미착공')      sites=sites.filter(function(s){return s.공정률===0;});
-    else if(filter.상태==='공사중')  sites=sites.filter(function(s){return s.공정률>0&&s.공정률<100;});
-    else if(filter.상태==='완공')    sites=sites.filter(function(s){return s.공정률===100;});
-    else if(filter.상태==='점검권장') sites=sites.filter(function(s){return s.공정률>=30&&s.공정률<=80;});
-    else if(filter.상태==='장기미착공') sites=sites.filter(function(s){return s.공정률===0&&daysDiff(s.최종업데이트)>30;});
+  filter = filter || {};
+  var sites = _sites.slice();
+  if (filter.구청)  sites = sites.filter(function(s) { return s.구청 === filter.구청; });
+  if (filter.용도)  sites = sites.filter(function(s) { return s.용도 === filter.용도; });
+  if (filter.상태) {
+    if (filter.상태 === '미착공')      sites = sites.filter(function(s) { return s.공정률 === 0; });
+    else if (filter.상태 === '공사중')  sites = sites.filter(function(s) { return s.공정률 > 0 && s.공정률 < 100; });
+    else if (filter.상태 === '완공')    sites = sites.filter(function(s) { return s.공정률 === 100; });
+    else if (filter.상태 === '점검권장') sites = sites.filter(function(s) { return s.공정률 >= 30 && s.공정률 <= 80; });
+    else if (filter.상태 === '장기미착공') sites = sites.filter(function(s) { return s.공정률 === 0 && daysDiff(s.최종업데이트) > 30; });
   }
-  if(filter.검색){var q=filter.검색;
-    sites=sites.filter(function(s){return s.permitNo.includes(q)||s.companyName.includes(q)||s.주소.includes(q);});}
-  return '<div class="card"><div class="card-title">🗂️ 전체 공사 현장 ('+sites.length+'건)</div>'+
-    '<div class="filter-bar">'+
-    '<select id="f_district" onchange="applyFilter()"><option value="">전체 구청</option>'+
-    '<option>만세구청</option><option>효행구청</option><option>병점구청</option><option>동탄구청</option></select>'+
-    '<select id="f_type" onchange="applyFilter()"><option value="">전체 용도</option>'+
-    '<option>단독주택</option><option>다세대주택</option><option>다가구주택</option>'+
-    '<option>근린생활시설</option><option>업무시설</option><option>공장</option><option>창고</option><option>기타</option></select>'+
-    '<select id="f_status" onchange="applyFilter()"><option value="">전체 상태</option>'+
-    '<option value="미착공">미착공</option><option value="공사중">공사중</option>'+
-    '<option value="완공">완공</option><option value="점검권장">점검권장</option><option value="장기미착공">장기미착공</option></select>'+
-    '<input type="text" id="f_search" placeholder="🔍 허가번호·업체명·주소" style="min-width:155px" oninput="applyFilter()">'+
-    '<button type="button" class="btn-export" onclick="exportCSV()">📥 CSV 내보내기</button></div>'+
-    '<div class="table-wrap"><table>'+
-    '<tr><th>No</th><th>허가번호</th><th>업체명</th><th>주소</th><th>구청</th><th>용도</th>'+
-    '<th>연면적(㎡)</th><th>지상</th><th>지하</th><th>공정률</th><th>최종업데이트</th>'+
-    '<th>경과일</th><th>점검횟수</th><th>최근점검</th><th>상태</th><th>관리</th></tr>'+
-    (sites.length===0?'<tr><td colspan="16"><div class="empty-state"><div class="icon">🔍</div>조건에 맞는 현장이 없습니다</div></td></tr>'
-      :sites.map(function(s,i){
-        var days=daysDiff(s.최종업데이트), inspList=s.점검이력||[];
-        return '<tr>'+
-          '<td>'+(i+1)+'</td>'+
-          '<td><small style="color:#2e86c1;cursor:pointer" onclick="showDetail(\''+s.id+'\')">'+s.permitNo+'</small></td>'+
-          '<td>'+s.companyName+'</td>'+
-          '<td style="text-align:left;font-size:.78rem">'+s.주소+'</td>'+
-          '<td>'+s.구청+'</td><td>'+s.용도+'</td>'+
-          '<td>'+Number(s.연면적).toLocaleString()+'</td>'+
-          '<td>'+(s.지상층수||'-')+'</td><td>'+(s.지하층수||0)+'</td>'+
-          '<td><div class="progress-wrap"><div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+Math.max(s.공정률,0)+'%"></div></div>'+
-          '<small style="font-weight:700">'+s.공정률+'%</small></td>'+
-          '<td><small>'+s.최종업데이트+'</small></td>'+
-          '<td><span class="badge '+(days>30?'badge-red':'badge-gray')+'">'+days+'일</span></td>'+
-          '<td><span class="badge '+(inspList.length>0?'badge-green':'badge-gray')+'">'+inspList.length+'회</span></td>'+
-          '<td><small>'+(s.최근점검일||'없음')+'</small></td>'+
-          '<td>'+getStatusBadge(s)+'</td>'+
-          '<td><button class="btn-info" onclick="showDetail(\''+s.id+'\')">상세</button>'+
-          '<button class="insp-add-btn" style="font-size:.74rem;padding:4px 7px" onclick="showInspModal(\''+s.id+'\')">점검</button>'+
-          '<button class="btn-danger" onclick="doDeleteSite(\''+s.id+'\')">삭제</button></td></tr>';
-      }).join(''))+
+  if (filter.검색) {
+    var q = filter.검색;
+    sites = sites.filter(function(s) {
+      return s.permitNo.includes(q) || s.companyName.includes(q) || s.주소.includes(q);
+    });
+  }
+  return '<div class="card"><div class="card-title">🗂️ 전체 공사 현장 (' + sites.length + '건)</div>' +
+    '<div class="filter-bar">' +
+    '<select id="f_district" onchange="applyFilter()"><option value="">전체 구청</option>' +
+    '<option>만세구청</option><option>효행구청</option>' +
+    '<option>병점구청</option><option>동탄구청</option></select>' +
+    '<select id="f_type" onchange="applyFilter()"><option value="">전체 용도</option>' +
+    '<option>단독주택</option><option>다세대주택</option><option>다가구주택</option>' +
+    '<option>근린생활시설</option><option>업무시설</option><option>공장</option>' +
+    '<option>창고</option><option>기타</option></select>' +
+    '<select id="f_status" onchange="applyFilter()"><option value="">전체 상태</option>' +
+    '<option value="미착공">미착공</option><option value="공사중">공사중</option>' +
+    '<option value="완공">완공</option><option value="점검권장">점검권장</option>' +
+    '<option value="장기미착공">장기미착공</option></select>' +
+    '<input type="text" id="f_search" placeholder="🔍 허가번호·업체명·주소" ' +
+    'style="min-width:140px" oninput="applyFilter()">' +
+    '<button type="button" class="btn-export" onclick="exportCSV()">📥 CSV</button></div>' +
+    '<div class="table-wrap"><table>' +
+    '<tr><th>No</th><th>허가번호</th><th>업체명</th><th>주소</th><th>구청</th><th>용도</th>' +
+    '<th>연면적</th><th>지상</th><th>지하</th><th>공정률</th>' +
+    '<th>최종업데이트</th><th>경과일</th><th>점검횟수</th><th>상태</th><th>관리</th></tr>' +
+    (sites.length === 0
+      ? '<tr><td colspan="15"><div class="empty-state"><div class="icon">🔍</div>조건에 맞는 현장이 없습니다</div></td></tr>'
+      : sites.map(function(s, i) {
+          var days = daysDiff(s.최종업데이트);
+          var inspCnt = (s.점검이력 || []).length;
+          return '<tr><td>' + (i+1) + '</td>' +
+            '<td><small style="color:#2e86c1;cursor:pointer" ' +
+            'onclick="showDetail(\'' + s.id + '\')">' + s.permitNo + '</small></td>' +
+            '<td>' + s.companyName + '</td>' +
+            '<td style="text-align:left;font-size:.77rem">' + s.주소 + '</td>' +
+            '<td>' + s.구청 + '</td><td>' + s.용도 + '</td>' +
+            '<td>' + Number(s.연면적).toLocaleString() + '</td>' +
+            '<td>' + (s.지상층수||'-') + '</td><td>' + (s.지하층수||0) + '</td>' +
+            '<td><div class="progress-wrap"><div class="progress-bar ' + getProgressClass(s.공정률) +
+            '" style="width:' + Math.max(s.공정률,0) + '%"></div></div>' +
+            '<small style="font-weight:700">' + s.공정률 + '%</small></td>' +
+            '<td><small>' + s.최종업데이트 + '</small></td>' +
+            '<td><span class="badge ' + (days > 30 ? 'badge-red' : 'badge-gray') + '">' + days + '일</span></td>' +
+            '<td><span class="badge ' + (inspCnt > 0 ? 'badge-green' : 'badge-gray') + '">' + inspCnt + '회</span></td>' +
+            '<td>' + getStatusBadge(s) + '</td>' +
+            '<td><button class="btn-info" onclick="showDetail(\'' + s.id + '\')">상세</button>' +
+            '<button class="insp-add-btn" style="font-size:.72rem;padding:3px 6px" ' +
+            'onclick="showInspModal(\'' + s.id + '\')">점검</button>' +
+            '<button class="btn-danger" onclick="doDeleteSite(\'' + s.id + '\')">삭제</button></td></tr>';
+        }).join('')) +
     '</table></div></div>';
 }
 
 function applyFilter() {
-  var filter={
-    구청:(document.getElementById('f_district')||{}).value||'',
-    용도:(document.getElementById('f_type')||{}).value||'',
-    상태:(document.getElementById('f_status')||{}).value||'',
-    검색:(document.getElementById('f_search')||{}).value||''
+  var filter = {
+    구청: (e('f_district')||{}).value || '',
+    용도: (e('f_type')||{}).value || '',
+    상태: (e('f_status')||{}).value || '',
+    검색: (e('f_search')||{}).value || ''
   };
-  document.getElementById('tabContent').innerHTML=renderAllSites(filter);
-  var map={f_district:'구청',f_type:'용도',f_status:'상태',f_search:'검색'};
-  Object.keys(map).forEach(function(id){var el=document.getElementById(id);if(el)el.value=filter[map[id]]||'';});
+  e('tabContent').innerHTML = renderAllSites(filter);
+  var map = { f_district: '구청', f_type: '용도', f_status: '상태', f_search: '검색' };
+  Object.keys(map).forEach(function(id) {
+    var el = e(id); if (el) el.value = filter[map[id]] || '';
+  });
 }
 
 /* ============================================================
    관리자: 위험도 순위
 ============================================================ */
 function renderRiskRank() {
-  var sites=_sites.filter(function(s){return s.공정률<100;})
-    .sort(function(a,b){return calcRiskScore(b)-calcRiskScore(a);}).slice(0,30);
-  return '<div class="card"><div class="card-title">⚠️ 위험도 순위 (미완공 현장 상위 30위)</div>'+
-    '<div class="alert-banner alert-danger" style="margin-bottom:11px">🔴 1~10위: 우선 점검 권장 | 🟠 11~30위: 정기 점검 대상</div>'+
-    '<div class="table-wrap"><table>'+
-    '<tr><th>순위</th><th>허가번호</th><th>업체명</th><th>주소</th><th>구청</th><th>용도</th>'+
-    '<th>연면적(㎡)</th><th>층수</th><th>공정률</th><th>점검횟수</th><th>위험점수</th><th>상태</th><th>관리</th></tr>'+
-    (sites.length===0?'<tr><td colspan="13"><div class="empty-state"><div class="icon">✅</div>집계할 현장이 없습니다</div></td></tr>'
-      :sites.map(function(s,i){
-        var rank=i+1, score=calcRiskScore(s);
-        var rowCls=rank<=10?'rank-top10':(rank<=30?'rank-top30':'');
-        var badgeCls=rank<=3?'rank-gold':(rank<=10?'rank-top':'rank-norm');
-        var inspCnt=(s.점검이력||[]).length;
-        return '<tr class="'+rowCls+'">'+
-          '<td><span class="rank-badge '+badgeCls+'">'+rank+'</span></td>'+
-          '<td><small style="color:#2e86c1;cursor:pointer" onclick="showDetail(\''+s.id+'\')">'+s.permitNo+'</small></td>'+
-          '<td>'+s.companyName+'</td>'+
-          '<td style="text-align:left;font-size:.78rem">'+s.주소+'</td>'+
-          '<td>'+s.구청+'</td><td><strong>'+s.용도+'</strong></td>'+
-          '<td>'+Number(s.연면적).toLocaleString()+'</td>'+
-          '<td>'+(s.지상층수||'-')+'층'+(s.지하층수?'(지하'+s.지하층수+'층)':'')+'</td>'+
-          '<td><div class="progress-wrap"><div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+Math.max(s.공정률,0)+'%"></div></div><small>'+s.공정률+'%</small></td>'+
-          '<td><span class="badge '+(inspCnt>0?'badge-green':'badge-red')+'">'+inspCnt+'회</span></td>'+
-          '<td><strong style="color:'+(score>=60?'#e74c3c':score>=40?'#f39c12':'#27ae60')+'">'+score+'점</strong></td>'+
-          '<td>'+getStatusBadge(s)+'</td>'+
-          '<td><button class="btn-info" onclick="showDetail(\''+s.id+'\')">상세</button>'+
-          '<button class="insp-add-btn" style="font-size:.74rem;padding:4px 7px" onclick="showInspModal(\''+s.id+'\')">점검</button></td></tr>';
-      }).join(''))+
-    '</table></div>'+
-    '<div style="margin-top:11px;font-size:.79rem;color:#718096">'+
-    '※ 위험도: 연면적(100㎡당1점,최대30) + 지상층수(층당5점,최대40) + 지하층수(층당5점) + 근생·업무시설(+20) + 위험공정구간(+15) + 장기미착공(+10)</div></div>';
+  var sites = _sites.filter(function(s) { return s.공정률 < 100; })
+    .sort(function(a, b) { return calcRiskScore(b) - calcRiskScore(a); })
+    .slice(0, 30);
+  return '<div class="card"><div class="card-title">⚠️ 위험도 순위 (미완공 상위 30위)</div>' +
+    '<div class="alert-banner alert-danger" style="margin-bottom:10px">' +
+    '🔴 1~10위: 우선 점검 | 🟠 11~30위: 정기 점검 대상</div>' +
+    '<div class="table-wrap"><table>' +
+    '<tr><th>순위</th><th>허가번호</th><th>업체명</th><th>주소</th>' +
+    '<th>용도</th><th>연면적</th><th>층수</th><th>공정률</th>' +
+    '<th>점검횟수</th><th>위험점수</th><th>상태</th><th>관리</th></tr>' +
+    (sites.length === 0
+      ? '<tr><td colspan="12"><div class="empty-state">집계할 현장이 없습니다</div></td></tr>'
+      : sites.map(function(s, i) {
+          var rank = i + 1, score = calcRiskScore(s);
+          var rowCls = rank <= 10 ? 'rank-top10' : (rank <= 30 ? 'rank-top30' : '');
+          var bdgCls = rank <= 3 ? 'rank-gold' : (rank <= 10 ? 'rank-top' : 'rank-norm');
+          var inspCnt = (s.점검이력 || []).length;
+          return '<tr class="' + rowCls + '">' +
+            '<td><span class="rank-badge ' + bdgCls + '">' + rank + '</span></td>' +
+            '<td><small style="color:#2e86c1;cursor:pointer" ' +
+            'onclick="showDetail(\'' + s.id + '\')">' + s.permitNo + '</small></td>' +
+            '<td>' + s.companyName + '</td>' +
+            '<td style="text-align:left;font-size:.77rem">' + s.주소 + '</td>' +
+            '<td><strong>' + s.용도 + '</strong></td>' +
+            '<td>' + Number(s.연면적).toLocaleString() + '</td>' +
+            '<td>' + (s.지상층수||'-') + '층' + (s.지하층수 ? '(지하' + s.지하층수 + ')' : '') + '</td>' +
+            '<td><div class="progress-wrap"><div class="progress-bar ' + getProgressClass(s.공정률) +
+            '" style="width:' + Math.max(s.공정률,0) + '%"></div></div><small>' + s.공정률 + '%</small></td>' +
+            '<td><span class="badge ' + (inspCnt > 0 ? 'badge-green' : 'badge-red') + '">' + inspCnt + '회</span></td>' +
+            '<td><strong style="color:' + (score >= 60 ? '#e74c3c' : score >= 40 ? '#f39c12' : '#27ae60') + '">' + score + '점</strong></td>' +
+            '<td>' + getStatusBadge(s) + '</td>' +
+            '<td><button class="btn-info" onclick="showDetail(\'' + s.id + '\')">상세</button>' +
+            '<button class="insp-add-btn" style="font-size:.72rem;padding:3px 6px" ' +
+            'onclick="showInspModal(\'' + s.id + '\')">점검</button></td></tr>';
+        }).join('')) +
+    '</table></div>' +
+    '<div style="margin-top:10px;font-size:.77rem;color:#718096">' +
+    '※ 위험도 = 연면적(100㎡당1점,최대30) + 지상층수(층당5점,최대40) + 지하층수(층당5점) + 근생·업무시설(+20) + 위험공정(+15) + 장기미착공(+10)</div></div>';
 }
 
 /* ============================================================
    관리자: 점검 관리
 ============================================================ */
 function renderInspection() {
-  var sites=_sites;
-  var longIdle  =sites.filter(function(s){return s.공정률===0&&daysDiff(s.최종업데이트)>30;});
-  var noInsp    =sites.filter(function(s){return s.공정률>0&&s.공정률<100&&(s.점검이력||[]).length===0;});
-  var needCheck =sites.filter(function(s){return s.공정률>=30&&s.공정률<=80;});
-  var delayUp   =sites.filter(function(s){return s.공정률<100&&daysDiff(s.최종업데이트)>30&&s.공정률>0;});
-  var inspected =sites.filter(function(s){return (s.점검이력||[]).length>0;})
-    .sort(function(a,b){return b.최근점검일.localeCompare(a.최근점검일);});
-  function mt(list,empty){
-    if(!list.length) return '<div class="empty-state"><div class="icon">✅</div>'+empty+'</div>';
-    return '<div class="table-wrap"><table><tr><th>허가번호</th><th>업체명</th><th>주소</th><th>공정률</th><th>점검횟수</th><th>최근점검</th><th>경과일</th><th>관리</th></tr>'+
-      list.map(function(s){return '<tr>'+
-        '<td><small>'+s.permitNo+'</small></td><td>'+s.companyName+'</td>'+
-        '<td style="text-align:left;font-size:.78rem">'+s.주소+'</td>'+
-        '<td><div class="progress-wrap"><div class="progress-bar '+getProgressClass(s.공정률)+'" style="width:'+Math.max(s.공정률,0)+'%"></div></div><small>'+s.공정률+'%</small></td>'+
-        '<td><span class="badge '+((s.점검이력||[]).length>0?'badge-green':'badge-gray')+'">'+(s.점검이력||[]).length+'회</span></td>'+
-        '<td><small>'+(s.최근점검일||'없음')+'</small></td>'+
-        '<td><span class="badge '+(daysDiff(s.최종업데이트)>30?'badge-red':'badge-gray')+'">'+daysDiff(s.최종업데이트)+'일</span></td>'+
-        '<td><button class="btn-info" onclick="showDetail(\''+s.id+'\')">상세</button>'+
-        '<button class="insp-add-btn" style="font-size:.74rem;padding:4px 7px" onclick="showInspModal(\''+s.id+'\')">점검등록</button></td></tr>';}).join('')+
-      '</table></div>';
+  var sites = _sites;
+  var longIdle  = sites.filter(function(s) { return s.공정률 === 0 && daysDiff(s.최종업데이트) > 30; });
+  var noInsp    = sites.filter(function(s) { return s.공정률 > 0 && s.공정률 < 100 && (s.점검이력||[]).length === 0; });
+  var needCheck = sites.filter(function(s) { return s.공정률 >= 30 && s.공정률 <= 80; });
+  var delayUp   = sites.filter(function(s) { return s.공정률 < 100 && daysDiff(s.최종업데이트) > 30 && s.공정률 > 0; });
+  var inspected = sites.filter(function(s) { return (s.점검이력||[]).length > 0; })
+    .sort(function(a, b) { return (b.최근점검일||'').localeCompare(a.최근점검일||''); });
+
+  function mt(list, empty) {
+    if (!list.length) return '<div class="empty-state"><div class="icon">✅</div>' + empty + '</div>';
+    return '<div class="table-wrap"><table><tr><th>허가번호</th><th>업체명</th><th>주소</th>' +
+      '<th>공정률</th><th>점검횟수</th><th>최근점검</th><th>경과일</th><th>관리</th></tr>' +
+      list.map(function(s) {
+        return '<tr><td><small>' + s.permitNo + '</small></td><td>' + s.companyName + '</td>' +
+          '<td style="text-align:left;font-size:.77rem">' + s.주소 + '</td>' +
+          '<td><div class="progress-wrap"><div class="progress-bar ' + getProgressClass(s.공정률) +
+          '" style="width:' + Math.max(s.공정률,0) + '%"></div></div><small>' + s.공정률 + '%</small></td>' +
+          '<td><span class="badge ' + ((s.점검이력||[]).length > 0 ? 'badge-green' : 'badge-gray') + '">' +
+          (s.점검이력||[]).length + '회</span></td>' +
+          '<td><small>' + (s.최근점검일||'없음') + '</small></td>' +
+          '<td><span class="badge ' + (daysDiff(s.최종업데이트) > 30 ? 'badge-red' : 'badge-gray') + '">' +
+          daysDiff(s.최종업데이트) + '일</span></td>' +
+          '<td><button class="btn-info" onclick="showDetail(\'' + s.id + '\')">상세</button>' +
+          '<button class="insp-add-btn" style="font-size:.72rem;padding:3px 6px" ' +
+          'onclick="showInspModal(\'' + s.id + '\')">점검</button></td></tr>';
+      }).join('') + '</table></div>';
   }
-  return '<div class="card"><div class="card-title">⚠️ 장기 미착공 (30일↑ 공정률 0%)</div>'+mt(longIdle,'장기 미착공 없음')+'</div>'+
-    '<div class="card"><div class="card-title">🚨 미점검 공사 중 현장</div>'+mt(noInsp,'미점검 현장 없음')+'</div>'+
-    '<div class="card"><div class="card-title">🔍 점검 권장 현장 (공정률 30~80%)</div>'+mt(needCheck,'점검 권장 현장 없음')+'</div>'+
-    '<div class="card"><div class="card-title">📅 업데이트 지연 (30일↑ 미갱신)</div>'+mt(delayUp,'업데이트 지연 없음')+'</div>'+
-    '<div class="card"><div class="card-title">✅ 점검 완료 현장 (총 '+inspected.length+'개소, 누적 '+
-    sites.reduce(function(a,s){return a+(s.점검이력||[]).length;},0)+'건)</div>'+mt(inspected,'점검 이력 없음')+'</div>';
+  return '<div class="card"><div class="card-title">⚠️ 장기 미착공 (30일↑ 공정률 0%)</div>' + mt(longIdle, '장기 미착공 없음') + '</div>' +
+    '<div class="card"><div class="card-title">🚨 미점검 공사 중 현장</div>' + mt(noInsp, '미점검 현장 없음') + '</div>' +
+    '<div class="card"><div class="card-title">🔍 점검 권장 (공정률 30~80%)</div>' + mt(needCheck, '점검 권장 현장 없음') + '</div>' +
+    '<div class="card"><div class="card-title">📅 업데이트 지연 (30일↑ 미갱신)</div>' + mt(delayUp, '업데이트 지연 없음') + '</div>' +
+    '<div class="card"><div class="card-title">✅ 점검 완료 현장 (' + inspected.length + '개소, 누적 ' +
+    sites.reduce(function(a, s) { return a + (s.점검이력||[]).length; }, 0) + '건)</div>' +
+    mt(inspected, '점검 이력 없음') + '</div>';
 }
 
 /* ============================================================
    관리자: 업체 비밀번호 관리
 ============================================================ */
 function renderPwManager() {
-  var list=Object.values(_companies).sort(function(a,b){return a.name.localeCompare(b.name,'ko');});
-  return '<div class="card">'+
-    '<div class="card-title">🔑 등록 업체 계정 및 비밀번호 관리 <span style="font-size:.74rem;color:#e74c3c;font-weight:400;margin-left:7px">※ 관리자 전용</span></div>'+
-    '<div class="alert-banner alert-warn" style="margin-bottom:13px">⚠️ 업체가 비밀번호를 분실했을 때 담당자가 직접 알려주기 위한 용도입니다.</div>'+
-    '<div class="filter-bar" style="margin-bottom:13px">'+
-    '<input type="text" id="pw_search" placeholder="🔍 업체명 검색" oninput="filterPwTable()">'+
-    '<button type="button" class="btn-info" onclick="toggleAllPw(true)" id="btnShowAll">👁️ 전체 보기</button>'+
-    '<button type="button" class="btn-warning" onclick="toggleAllPw(false)" id="btnHideAll" style="display:none">🙈 전체 숨기기</button>'+
-    '<span style="font-size:.79rem;color:#718096">총 '+list.length+'개 업체</span></div>'+
-    '<div class="table-wrap" id="pwTableWrap">'+buildPwTable(list)+'</div></div>';
+  var list = Object.values(_companies).sort(function(a, b) {
+    return (a.name||'').localeCompare(b.name||'', 'ko');
+  });
+  return '<div class="card">' +
+    '<div class="card-title">🔑 등록 업체 계정 및 비밀번호 관리 ' +
+    '<span style="font-size:.72rem;color:#e74c3c;font-weight:400">※ 관리자 전용</span></div>' +
+    '<div class="alert-banner alert-warn" style="margin-bottom:12px">' +
+    '⚠️ 업체가 비밀번호를 분실했을 때 담당자가 직접 알려주기 위한 용도입니다.</div>' +
+    '<div class="filter-bar" style="margin-bottom:12px">' +
+    '<input type="text" id="pw_search" placeholder="🔍 업체명 검색" oninput="filterPwTable()">' +
+    '<button type="button" class="btn-info" onclick="toggleAllPw(true)" id="btnShowAll">👁️ 전체 보기</button>' +
+    '<button type="button" class="btn-warning" onclick="toggleAllPw(false)" id="btnHideAll" style="display:none">🙈 숨기기</button>' +
+    '<span style="font-size:.77rem;color:#718096">총 ' + list.length + '개 업체</span></div>' +
+    '<div class="table-wrap" id="pwTableWrap">' + buildPwTable(list) + '</div></div>';
 }
 
 function buildPwTable(list) {
-  if(!list.length) return '<div class="empty-state"><div class="icon">🔑</div>등록된 업체가 없습니다</div>';
-  return '<table class="pw-table"><tr><th>No</th><th>업체명</th><th>가입일</th><th>공사장 수</th><th>비밀번호</th><th>관리</th></tr>'+
-    list.map(function(c,i){
-      var cnt=_sites.filter(function(s){return s.companyId===c.id;}).length;
-      return '<tr id="pwRow_'+i+'">'+
-        '<td>'+(i+1)+'</td>'+
-        '<td style="font-weight:700;color:#1a5276">'+c.name+'</td>'+
-        '<td><small>'+(c.등록일||'-')+'</small></td>'+
-        '<td>'+cnt+'건</td>'+
-        '<td><span id="pw_'+i+'" style="letter-spacing:3px;font-family:monospace">••••••••</span>'+
-        '<span class="pw-reveal" onclick="togglePw('+i+',\''+c.pw+'\')" id="pwBtn_'+i+'"> 보기</span></td>'+
-        '<td>'+
-        '<button type="button" class="btn-warning" onclick="showResetPwInline(\''+c.id+'\','+i+')">초기화</button> '+
-        '<button type="button" class="btn-danger" onclick="doDeleteCompany(\''+c.id+'\')">삭제</button></td></tr>'+
-        '<tr id="resetRow_'+i+'" style="display:none;background:#fef9e7"><td colspan="6" style="padding:11px 15px">'+
-        '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'+
-        '<span style="font-size:.81rem;font-weight:700;color:#d35400">🔑 '+c.name+' 새 비밀번호</span>'+
-        '<input type="text" id="resetPwInput_'+i+'" placeholder="영문+숫자 6자 이상" '+
-        'style="padding:7px 10px;border:2px solid #f39c12;border-radius:8px;font-size:.84rem;width:175px" '+
-        'oninput="checkResetPw('+i+')">'+
-        '<span id="resetPwHint_'+i+'" style="font-size:.75rem;color:#718096"></span>'+
-        '<button type="button" class="btn-success" onclick="applyResetPw(\''+c.id+'\','+i+')">✅ 변경</button>'+
-        '<button type="button" onclick="cancelReset('+i+')" style="padding:5px 11px;border:1px solid #ccc;border-radius:7px;background:white;cursor:pointer;font-size:.76rem">취소</button>'+
+  if (!list.length) return '<div class="empty-state"><div class="icon">🔑</div>등록된 업체가 없습니다</div>';
+  return '<table class="pw-table"><tr><th>No</th><th>업체명</th><th>가입일</th>' +
+    '<th>공사장 수</th><th>비밀번호</th><th>관리</th></tr>' +
+    list.map(function(c, i) {
+      var cnt = _sites.filter(function(s) { return s.companyId === c.id; }).length;
+      return '<tr id="pwRow_' + i + '">' +
+        '<td>' + (i+1) + '</td>' +
+        '<td style="font-weight:700;color:#1a5276">' + c.name + '</td>' +
+        '<td><small>' + (c.등록일||'-') + '</small></td>' +
+        '<td>' + cnt + '건</td>' +
+        '<td><span id="pw_' + i + '" style="letter-spacing:3px;font-family:monospace">••••••••</span>' +
+        '<span class="pw-reveal" onclick="togglePw(' + i + ',\'' + c.pw + '\')" ' +
+        'id="pwBtn_' + i + '"> 보기</span></td>' +
+        '<td><button type="button" class="btn-warning" ' +
+        'onclick="showResetPwInline(\'' + c.id + '\',' + i + ')">초기화</button> ' +
+        '<button type="button" class="btn-danger" ' +
+        'onclick="doDeleteCompany(\'' + c.id + '\')">삭제</button></td></tr>' +
+        '<tr id="resetRow_' + i + '" style="display:none;background:#fef9e7">' +
+        '<td colspan="6" style="padding:10px 14px">' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '<span style="font-size:.8rem;font-weight:700;color:#d35400">🔑 ' + c.name + ' 새 비밀번호</span>' +
+        '<input type="text" id="resetPwInput_' + i + '" placeholder="영문+숫자 6자 이상" ' +
+        'style="padding:7px 10px;border:2px solid #f39c12;border-radius:8px;' +
+        'font-size:.83rem;width:170px" oninput="checkResetPw(' + i + ')">' +
+        '<span id="resetPwHint_' + i + '" style="font-size:.73rem;color:#718096"></span>' +
+        '<button type="button" class="btn-success" ' +
+        'onclick="applyResetPw(\'' + c.id + '\',' + i + ')">✅ 변경</button>' +
+        '<button type="button" onclick="cancelReset(' + i + ')" ' +
+        'style="padding:4px 10px;border:1px solid #ccc;border-radius:7px;' +
+        'background:white;cursor:pointer;font-size:.75rem">취소</button>' +
         '</div></td></tr>';
-    }).join('')+'</table>';
+    }).join('') + '</table>';
 }
 
 function toggleAllPw(show) {
-  Object.values(_companies).forEach(function(c,i){
-    var span=document.getElementById('pw_'+i), btn=document.getElementById('pwBtn_'+i);
-    if(!span||!btn) return;
-    span.textContent=show?c.pw:'••••••••'; btn.textContent=show?' 숨기기':' 보기';
+  Object.values(_companies).forEach(function(c, i) {
+    var span = e('pw_' + i), btn = e('pwBtn_' + i);
+    if (!span || !btn) return;
+    span.textContent = show ? c.pw : '••••••••';
+    btn.textContent  = show ? ' 숨기기' : ' 보기';
   });
-  var s=document.getElementById('btnShowAll'), h=document.getElementById('btnHideAll');
-  if(s) s.style.display=show?'none':'inline-block';
-  if(h) h.style.display=show?'inline-block':'none';
+  var s = e('btnShowAll'), h = e('btnHideAll');
+  if (s) s.style.display = show ? 'none' : 'inline-block';
+  if (h) h.style.display = show ? 'inline-block' : 'none';
 }
 function filterPwTable() {
-  var q=(document.getElementById('pw_search').value||'').toLowerCase();
-  var list=Object.values(_companies).filter(function(c){return c.name.toLowerCase().includes(q);});
-  document.getElementById('pwTableWrap').innerHTML=buildPwTable(list);
+  var q = ((e('pw_search')||{}).value || '').toLowerCase();
+  var list = Object.values(_companies).filter(function(c) {
+    return (c.name||'').toLowerCase().includes(q);
+  });
+  e('pwTableWrap').innerHTML = buildPwTable(list);
 }
-function togglePw(idx,pw) {
-  var span=document.getElementById('pw_'+idx), btn=document.getElementById('pwBtn_'+idx);
-  if(!span||!btn) return;
-  span.textContent=(span.textContent===pw)?'••••••••':pw;
-  btn.textContent=(span.textContent===pw)?' 숨기기':' 보기';
+function togglePw(idx, pw) {
+  var span = e('pw_' + idx), btn = e('pwBtn_' + idx);
+  if (!span || !btn) return;
+  span.textContent = (span.textContent === pw) ? '••••••••' : pw;
+  btn.textContent  = (span.textContent === pw) ? ' 숨기기' : ' 보기';
 }
-function showResetPwInline(cid,idx) {
-  document.querySelectorAll('[id^="resetRow_"]').forEach(function(r){r.style.display='none';});
-  var row=document.getElementById('resetRow_'+idx); if(row) row.style.display='table-row';
-  var inp=document.getElementById('resetPwInput_'+idx); if(inp) inp.focus();
+function showResetPwInline(cid, idx) {
+  document.querySelectorAll('[id^="resetRow_"]').forEach(function(r) {
+    r.style.display = 'none';
+  });
+  var row = e('resetRow_' + idx);
+  if (row) row.style.display = 'table-row';
+  var inp = e('resetPwInput_' + idx);
+  if (inp) inp.focus();
 }
 function cancelReset(idx) {
-  var r=document.getElementById('resetRow_'+idx); if(r) r.style.display='none';
-  var i=document.getElementById('resetPwInput_'+idx); if(i) i.value='';
+  var r = e('resetRow_' + idx); if (r) r.style.display = 'none';
+  var i = e('resetPwInput_' + idx); if (i) i.value = '';
 }
 function checkResetPw(idx) {
-  var val=((document.getElementById('resetPwInput_'+idx)||{}).value||'');
-  var hint=document.getElementById('resetPwHint_'+idx); if(!hint) return;
-  hint.textContent=isValidPw(val)?'✅ 사용 가능':'❌ 영문+숫자 6자 이상';
-  hint.style.color=isValidPw(val)?'#27ae60':'#e74c3c';
+  var val = ((e('resetPwInput_' + idx)||{}).value || '');
+  var hint = e('resetPwHint_' + idx); if (!hint) return;
+  hint.textContent = isValidPw(val) ? '✅ 사용 가능' : '❌ 영문+숫자 6자 이상';
+  hint.style.color = isValidPw(val) ? '#27ae60' : '#e74c3c';
 }
-function applyResetPw(cid,idx) {
-  var nw=((document.getElementById('resetPwInput_'+idx)||{}).value||'').trim();
-  if(!isValidPw(nw)){showToast('❌ 영문+숫자 6자 이상');return;}
+function applyResetPw(cid, idx) {
+  var nw = ((e('resetPwInput_' + idx)||{}).value || '').trim();
+  if (!isValidPw(nw)) { showToast('❌ 영문+숫자 6자 이상'); return; }
   showLoading('비밀번호 변경 중...');
-  saveCompany(cid,{pw:nw}).then(function(){
-    _companies[cid].pw=nw;
-    showToast('✅ ['+_companies[cid].name+'] 비밀번호가 변경되었습니다');
-    switchTab('pwManager');
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  saveCompany(cid, { pw: nw })
+    .then(function() {
+      _companies[cid].pw = nw;
+      showToast('✅ [' + _companies[cid].name + '] 비밀번호가 변경되었습니다');
+      switchTab('pwManager');
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 function doDeleteCompany(cid) {
-  var c=_companies[cid]; if(!c) return;
-  if(!confirm('['+c.name+'] 업체를 삭제하시겠습니까?
-해당 업체의 공사장 데이터는 유지됩니다.')) return;
+  var c = _companies[cid]; if (!c) return;
+  if (!confirm('[' + c.name + '] 업체를 삭제하시겠습니까?')) return;
   showLoading('삭제 중...');
-  deleteCompanyDB(cid).then(function(){
-    delete _companies[cid];
-    showToast('🗑️ 업체가 삭제되었습니다');
-    switchTab('pwManager');
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  deleteCompanyDB(cid)
+    .then(function() {
+      delete _companies[cid];
+      showToast('🗑️ 업체가 삭제되었습니다');
+      switchTab('pwManager');
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    관리자: 보안 설정
 ============================================================ */
 function renderSecurity() {
-  var info=_adminInfo;
-  if(!info) return '<div class="card"><div class="card-title">🔒 보안 설정</div><p>관리자 계정 정보가 없습니다.</p></div>';
-  var d=Math.floor((Date.now()-(info.pwChangedAt||info.createdAt))/86400000);
-  return '<div class="card"><div class="card-title">🔒 관리자 보안 설정</div>'+
-    '<div class="sec-box"><div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">'+
-    '<div><div style="font-size:.75rem;color:#718096">현재 관리자 ID</div><div style="font-weight:700;font-size:.98rem;color:#1a5276">'+info.id+'</div></div>'+
-    '<div><div style="font-size:.75rem;color:#718096">비밀번호 변경 경과일</div><div style="font-weight:700;color:'+(d>90?'#e74c3c':'#27ae60')+'">'+d+'일 '+(d>90?'⚠️ 변경 권장':'✅')+'</div></div>'+
-    '<div><div style="font-size:.75rem;color:#718096">변경 횟수</div><div style="font-size:.87rem">'+(info.pwChangeCount||0)+'회</div></div></div></div>'+
-    '<div style="max-width:390px">'+
-    '<div class="form-group"><label>현재 비밀번호</label><input type="password" id="sec_cur"></div>'+
-    '<div class="form-group"><label>새 비밀번호 (영문+숫자 8자 이상)</label>'+
-    '<input type="password" id="sec_new1" oninput="checkSecPw()">'+
-    '<div class="pw-hint" id="secPwHint"></div></div>'+
-    '<div class="form-group"><label>새 비밀번호 확인</label>'+
-    '<input type="password" id="sec_new2" oninput="checkSecPwMatch()">'+
-    '<div class="pw-hint" id="secPwMatchHint"></div></div>'+
-    '<button type="button" class="btn-submit" onclick="changeAdminPw()">🔒 비밀번호 변경</button></div></div>'+
-    '<div class="card" style="margin-top:0"><div class="card-title">📅 비밀번호 변경 이력</div>'+
-    ((info.pwHistory||[]).slice().reverse().map(function(h){return '<div style="padding:6px 0;border-bottom:1px solid #f0f4f8">🔑 '+h+'</div>';}).join('')||
-    '<div style="color:#a0aec0;padding:11px 0">변경 이력 없음</div>')+'</div>';
+  var info = _adminInfo;
+  if (!info) return '<div class="card"><div class="card-title">🔒 보안 설정</div><p>관리자 계정 정보가 없습니다.</p></div>';
+  var d = Math.floor((Date.now() - (info.pwChangedAt || info.createdAt)) / 86400000);
+  return '<div class="card"><div class="card-title">🔒 관리자 보안 설정</div>' +
+    '<div class="sec-box"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+    '<div><div style="font-size:.73rem;color:#718096">현재 관리자 ID</div>' +
+    '<div style="font-weight:700;font-size:.95rem;color:#1a5276">' + info.id + '</div></div>' +
+    '<div><div style="font-size:.73rem;color:#718096">비밀번호 변경 경과일</div>' +
+    '<div style="font-weight:700;color:' + (d > 90 ? '#e74c3c' : '#27ae60') + '">' +
+    d + '일 ' + (d > 90 ? '⚠️ 변경 권장' : '✅') + '</div></div>' +
+    '<div><div style="font-size:.73rem;color:#718096">변경 횟수</div>' +
+    '<div style="font-size:.85rem">' + (info.pwChangeCount||0) + '회</div></div></div></div>' +
+    '<div style="max-width:380px">' +
+    '<div class="form-group"><label>현재 비밀번호</label>' +
+    '<input type="password" id="sec_cur" autocomplete="current-password"></div>' +
+    '<div class="form-group"><label>새 비밀번호 (영문+숫자 8자 이상)</label>' +
+    '<input type="password" id="sec_new1" autocomplete="new-password" oninput="checkSecPw()">' +
+    '<div class="pw-hint" id="secPwHint"></div></div>' +
+    '<div class="form-group"><label>새 비밀번호 확인</label>' +
+    '<input type="password" id="sec_new2" autocomplete="new-password" oninput="checkSecPwMatch()">' +
+    '<div class="pw-hint" id="secPwMatchHint"></div></div>' +
+    '<button type="button" class="btn-submit" onclick="changeAdminPw()">🔒 비밀번호 변경</button></div></div>' +
+    '<div class="card" style="margin-top:0"><div class="card-title">📅 비밀번호 변경 이력</div>' +
+    ((info.pwHistory||[]).slice().reverse().map(function(h) {
+      return '<div style="padding:5px 0;border-bottom:1px solid #f0f4f8">🔑 ' + h + '</div>';
+    }).join('') || '<div style="color:#a0aec0;padding:10px 0">변경 이력 없음</div>') + '</div>';
 }
 function checkSecPw() {
-  var pw=document.getElementById('sec_new1').value, h=document.getElementById('secPwHint');
-  h.textContent=isValidAdminPw(pw)?'✅ 사용 가능':'❌ 영문+숫자 8자 이상';
-  h.className='pw-hint '+(isValidAdminPw(pw)?'ok':'err');
+  var pw = e('sec_new1').value, h = e('secPwHint');
+  h.textContent = isValidAdminPw(pw) ? '✅ 사용 가능' : '❌ 영문+숫자 8자 이상';
+  h.className   = 'pw-hint ' + (isValidAdminPw(pw) ? 'ok' : 'err');
 }
 function checkSecPwMatch() {
-  var pw1=document.getElementById('sec_new1').value, pw2=document.getElementById('sec_new2').value;
-  var h=document.getElementById('secPwMatchHint'); if(!pw2){h.textContent='';return;}
-  h.textContent=pw1===pw2?'✅ 일치':'❌ 불일치'; h.className='pw-hint '+(pw1===pw2?'ok':'err');
+  var pw1 = e('sec_new1').value, pw2 = e('sec_new2').value;
+  var h = e('secPwMatchHint'); if (!pw2) { h.textContent = ''; return; }
+  h.textContent = pw1 === pw2 ? '✅ 일치' : '❌ 불일치';
+  h.className   = 'pw-hint ' + (pw1 === pw2 ? 'ok' : 'err');
 }
 function changeAdminPw() {
-  var cur=document.getElementById('sec_cur').value.trim();
-  var nw1=document.getElementById('sec_new1').value.trim();
-  var nw2=document.getElementById('sec_new2').value.trim();
-  if(!_adminInfo)          {showToast('❌ 관리자 정보 없음');return;}
-  if(_adminInfo.pw!==cur)  {showToast('❌ 현재 비밀번호 불일치');return;}
-  if(!isValidAdminPw(nw1)) {showToast('⚠️ 새 비밀번호 영문+숫자 8자 이상');return;}
-  if(nw1!==nw2)            {showToast('⚠️ 비밀번호 불일치');return;}
-  if(nw1===cur)            {showToast('⚠️ 현재 비밀번호와 동일합니다');return;}
+  var cur = gv('sec_cur'), nw1 = gv('sec_new1'), nw2 = gv('sec_new2');
+  if (!_adminInfo)           { showToast('❌ 관리자 정보 없음'); return; }
+  if (_adminInfo.pw !== cur) { showToast('❌ 현재 비밀번호 불일치'); return; }
+  if (!isValidAdminPw(nw1))  { showToast('⚠️ 새 비밀번호 영문+숫자 8자 이상'); return; }
+  if (nw1 !== nw2)           { showToast('⚠️ 비밀번호 불일치'); return; }
+  if (nw1 === cur)           { showToast('⚠️ 현재 비밀번호와 동일합니다'); return; }
   showLoading('비밀번호 변경 중...');
-  _adminInfo.pw=nw1; _adminInfo.pwChangedAt=Date.now();
-  _adminInfo.pwChangeCount=(_adminInfo.pwChangeCount||0)+1;
-  _adminInfo.pwHistory=(_adminInfo.pwHistory||[]);
-  _adminInfo.pwHistory.push(new Date().toLocaleString('ko-KR')+' 변경');
-  if(_adminInfo.pwHistory.length>10) _adminInfo.pwHistory=_adminInfo.pwHistory.slice(-10);
-  saveAdmin(_adminInfo).then(function(){
-    showToast('✅ 비밀번호가 변경되었습니다'); switchTab('security');
-  }).catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  _adminInfo.pw = nw1;
+  _adminInfo.pwChangedAt = Date.now();
+  _adminInfo.pwChangeCount = (_adminInfo.pwChangeCount || 0) + 1;
+  _adminInfo.pwHistory = (_adminInfo.pwHistory || []);
+  _adminInfo.pwHistory.push(new Date().toLocaleString('ko-KR') + ' 변경');
+  if (_adminInfo.pwHistory.length > 10)
+    _adminInfo.pwHistory = _adminInfo.pwHistory.slice(-10);
+  saveAdmin(_adminInfo)
+    .then(function() {
+      showToast('✅ 비밀번호가 변경되었습니다');
+      switchTab('security');
+    })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    알림 센터
 ============================================================ */
 function renderAlerts() {
-  currentTab='alerts';
-  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
-  var a=document.getElementById('tab_alerts'); if(a) a.classList.add('active');
-  document.getElementById('tabContent').innerHTML=
-    '<div class="card"><div class="card-title">🔔 알림 센터</div>'+
+  currentTab = 'alerts';
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  var a = e('tab_alerts'); if (a) a.classList.add('active');
+  e('tabContent').innerHTML =
+    '<div class="card"><div class="card-title">🔔 알림 센터</div>' +
     '<div class="empty-state"><div class="icon">⏳</div>알림 불러오는 중...</div></div>';
-  fetchNotifs().then(function(notifs){
-    document.getElementById('tabContent').innerHTML=
-      '<div class="card"><div class="card-title">🔔 알림 센터'+
-      '<button type="button" class="btn-warning" style="margin-left:auto;font-size:.79rem" onclick="doClearNotifs()">전체 삭제</button></div>'+
-      (notifs.length===0?'<div class="empty-state"><div class="icon">🔔</div>새로운 알림이 없습니다</div>'
-        :notifs.map(function(n){return '<div class="alert-banner alert-new" style="margin-bottom:7px">'+
-          '<span>🔔</span><div><div style="font-weight:700">'+n.msg+'</div>'+
-          '<div style="font-size:.75rem;opacity:.7;margin-top:2px">'+n.time+'</div></div></div>';}).join(''))+'</div>';
-  }).catch(function(e){
-    document.getElementById('tabContent').innerHTML='<div class="card"><p style="color:#e74c3c">알림 로드 실패: '+e.message+'</p></div>';
-  });
+  fetchNotifsSafe()
+    .then(function(notifs) {
+      e('tabContent').innerHTML =
+        '<div class="card"><div class="card-title">🔔 알림 센터' +
+        '<button type="button" class="btn-warning" style="margin-left:auto;font-size:.78rem" ' +
+        'onclick="doClearNotifs()">전체 삭제</button></div>' +
+        (notifs.length === 0
+          ? '<div class="empty-state"><div class="icon">🔔</div>새로운 알림이 없습니다</div>'
+          : notifs.map(function(n) {
+              return '<div class="alert-banner alert-new" style="margin-bottom:7px">' +
+                '<span>🔔</span><div><div style="font-weight:700">' + n.msg + '</div>' +
+                '<div style="font-size:.73rem;opacity:.7;margin-top:2px">' + n.time + '</div></div></div>';
+            }).join('')) + '</div>';
+    })
+    .catch(function(err) {
+      e('tabContent').innerHTML =
+        '<div class="card"><p style="color:#e74c3c;padding:14px">알림 로드 실패: ' + err.message + '</p></div>';
+    });
 }
 function doClearNotifs() {
   showLoading('알림 삭제 중...');
-  clearNotifsDB().then(function(){showToast('✅ 알림을 모두 삭제했습니다'); renderAlerts();})
-    .catch(function(e){showToast('❌ 오류: '+e.message);}).finally(function(){hideLoading();});
+  clearNotifsDB()
+    .then(function() { showToast('✅ 알림을 모두 삭제했습니다'); renderAlerts(); })
+    .catch(function(err) { showToast('❌ 오류: ' + err.message); })
+    .then(function() { hideLoading(); });
 }
 
 /* ============================================================
    CSV 내보내기
 ============================================================ */
 function exportCSV() {
-  var h=['허가번호','업체명','주소','구청','용도','연면적(㎡)','지상층수','지하층수',
-    '착공일','예정준공일','공정률(%)','최종업데이트','점검횟수','최근점검일','최근점검유형','특이사항'];
-  var rows=_sites.map(function(s){return [
-    s.permitNo,s.companyName,s.주소,s.구청,s.용도,s.연면적,
-    s.지상층수||0,s.지하층수||0,s.착공일,s.예정준공일||'',
-    s.공정률,s.최종업데이트,(s.점검이력||[]).length,
-    s.최근점검일||'',s.최근점검유형||'',s.특이사항||''];});
-  var csv='\uFEFF'+[h].concat(rows).map(function(r){
-    return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('
+  var h = ['허가번호','업체명','주소','구청','용도','연면적(㎡)','지상층수','지하층수',
+    '착공일','예정준공일','공정률(%)','최종업데이트','점검횟수','최근점검일','특이사항'];
+  var rows = _sites.map(function(s) {
+    return [s.permitNo, s.companyName, s.주소, s.구청, s.용도, s.연면적,
+      s.지상층수||0, s.지하층수||0, s.착공일, s.예정준공일||'',
+      s.공정률, s.최종업데이트, (s.점검이력||[]).length,
+      s.최근점검일||'', s.특이사항||''];
+  });
+  var csv = '\uFEFF' + [h].concat(rows).map(function(r) {
+    return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('
 ');
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='화성시_공사현장현황_'+new Date().toISOString().slice(0,10)+'.csv';
-  a.click(); showToast('📥 CSV 파일이 다운로드되었습니다');
+  var a = document.createElement('a');
+  a.href     = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = '화성시_공사현장현황_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('📥 CSV 파일이 다운로드되었습니다');
 }
 
 /* ============================================================
    이용 안내
 ============================================================ */
 function renderGuide() {
-  return '<div class="card"><div class="card-title">📋 시스템 이용 안내</div>'+
-    '<div style="line-height:1.9;font-size:.89rem">'+
-    '<div style="background:#eaf4fb;border-radius:12px;padding:16px;margin-bottom:13px">'+
-    '<div style="font-weight:700;color:#1a5276;margin-bottom:7px">🏗️ 이 시스템의 목적</div>'+
-    '<p>화성시 건축과에서는 공사 현장의 실제 착공 여부와 공정 현황을 파악하기 위해 이 시스템을 운영합니다. 시공업체가 자발적으로 공정률을 등록하면, 불필요한 현장 방문 전화를 줄이고 효율적인 점검 업무가 가능합니다.</p></div>'+
-    '<div style="margin-bottom:13px"><div style="font-weight:700;color:#1a5276;margin-bottom:6px">📌 로그인 방법</div>'+
-    '<ol style="padding-left:17px">'+
-    '<li>처음 이용 시 <strong>[신규 업체 등록]</strong>을 눌러 업체명과 비밀번호를 설정합니다</li>'+
-    '<li>이후 접속 시 목록에서 업체명을 클릭하고 비밀번호를 입력합니다</li>'+
-    '<li>한 계정으로 여러 공사장을 등록·관리할 수 있습니다</li>'+
-    '<li>비밀번호는 <strong>영문+숫자 조합 6자 이상</strong>으로 설정해야 합니다</li></ol></div>'+
-    '<div style="margin-bottom:13px"><div style="font-weight:700;color:#1a5276;margin-bottom:6px">📅 공정률 업데이트 주기</div>'+
-    '<ul style="padding-left:17px">'+
-    '<li>최소 <strong>월 1회</strong> 이상 공정률을 업데이트해 주시기 바랍니다</li>'+
-    '<li>30일 이상 미갱신 시 <strong>업데이트 지연</strong> 현장으로 분류됩니다</li></ul></div>'+
-    '<div style="background:#fef3e2;border-radius:12px;padding:13px">'+
-    '<div style="font-weight:700;color:#d35400;margin-bottom:4px">⚠️ 주의사항</div>'+
-    '<ul style="padding-left:17px">'+
-    '<li>비밀번호 분실 시 화성시 건축과에 문의하세요 ☎ 031-xxx-xxxx</li>'+
-    '<li>허위 공정률 입력 시 현장 점검 시 확인됩니다</li></ul></div></div></div>';
+  return '<div class="card"><div class="card-title">📋 시스템 이용 안내</div>' +
+    '<div style="line-height:1.9;font-size:.88rem">' +
+    '<div style="background:#eaf4fb;border-radius:12px;padding:15px;margin-bottom:12px">' +
+    '<div style="font-weight:700;color:#1a5276;margin-bottom:6px">🏗️ 이 시스템의 목적</div>' +
+    '<p>화성시 건축과에서는 공사 현장의 실제 착공 여부와 공정 현황을 파악하기 위해 이 시스템을 운영합니다. 시공업체가 자발적으로 공정률을 등록하면 불필요한 현장 방문 전화를 줄이고 효율적인 점검 업무가 가능합니다.</p></div>' +
+    '<div style="margin-bottom:12px"><div style="font-weight:700;color:#1a5276;margin-bottom:6px">📌 로그인 방법</div>' +
+    '<ol style="padding-left:16px"><li>처음 이용 시 <strong>[신규 업체 등록]</strong>으로 계정 생성</li>' +
+    '<li>이후 목록에서 업체명 클릭 → 비밀번호 입력</li>' +
+    '<li>한 계정으로 여러 공사장 관리 가능</li>' +
+    '<li>비밀번호: <strong>영문+숫자 6자 이상</strong></li></ol></div>' +
+    '<div style="background:#fef3e2;border-radius:12px;padding:12px">' +
+    '<div style="font-weight:700;color:#d35400;margin-bottom:4px">⚠️ 주의사항</div>' +
+    '<ul style="padding-left:16px">' +
+    '<li>비밀번호 분실 시 화성시 건축과 ☎ 031-xxx-xxxx</li>' +
+    '<li>허위 공정률 입력 시 현장 점검 시 확인됩니다</li>' +
+    '<li>최소 <strong>월 1회</strong> 공정률 업데이트를 권장합니다</li></ul></div></div></div>';
 }
 </script>
 </body>
