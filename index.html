@@ -815,16 +815,118 @@ function setProcess(siteId,proc){
 /* ============================================================
    긴급연락처
 ============================================================ */
+/* ============================================================
+   화성시 건축과 담당자 DB (분장사무 기준 — 주무관급)
+============================================================ */
+var HWASEONG_CONTACTS=[
+  /* ── 건축과 ── */
+  {dept:'건축과',team:'건축정책팀',name:'김종민',ext:'2396',email:'spoky@korea.kr',duty:'연면적 2만㎡↑ 건축허가(동탄구), 건축조례·건축기본조례, 건축문화상 계획·운영, 적극행정 계획'},
+  {dept:'건축과',team:'건축정책팀',name:'황규민',ext:'2397',email:'hkm3593@korea.kr',duty:'연면적 2만㎡↑ 건축허가(만세구·우정 제외, 효행구·정남), 건물관리 조례, 한옥·집합건물 관리 조례, 건축행정 건설화 평가'},
+  {dept:'건축과',team:'건축정책팀',name:'송지윤',ext:'3977',email:'s92060001@korea.kr',duty:'서무·회계, 기록물관리, 정보공개·정보보안, 통계, 연면적 2만㎡↑ 건축허가(효행구·매송)'},
+  {dept:'건축과',team:'건축정책팀',name:'정예진',ext:'1860',email:'hhhh33@korea.kr',duty:'연면적 2만㎡↑ 건축허가(효행구·정남·매송 제외, 병점구·만세구·양감·우정), 건축행정시스템 관리, 비행안전구역 협의, 성과관리계획(BSC), 공장총량제, 생활숙박시설 지원센터'},
+  {dept:'건축과',team:'건축허가팀',name:'이대순',ext:'2699',email:'ds77@korea.kr',duty:'7층↑·연면적 2천㎡↑~2만㎡ 건축허가(동탄구·병점구), 건축사 재능기부 사업계획'},
+  {dept:'건축과',team:'건축허가팀',name:'이주희',ext:'2691',email:'ab5835356@korea.kr',duty:'7층↑·연면적 2천㎡↑~2만㎡ 건축허가(효행구·남양), 미착공 건축허가 취소'},
+  {dept:'건축과',team:'건축허가팀',name:'김제우',ext:'7212',email:'jaweoo07@korea.kr',duty:'7층↑·연면적 2천㎡↑~2만㎡ 건축허가(만세구·향남·팔탄·마도)'},
+  {dept:'건축과',team:'건축허가팀',name:'이정미',ext:'2423',email:'',duty:'7층↑·연면적 2천㎡↑ 이하 건축허가(만세구·우정·송산·서신·장안·양감·새솔)'},
+  {dept:'건축과',team:'건축지원팀',name:'김한주',ext:'7294',email:'hanju94@korea.kr',duty:'소규모 공동주택 지원·건축사 징계위원회, 용도변경·대수선 인허가 및 위반건축물 지도·단속(동탄구·병점구), 해당규모 7개층↑ 2천㎡↑'},
+  {dept:'건축과',team:'건축지원팀',name:'황수지',ext:'6394',email:'hsj5189@korea.kr',duty:'녹색건축물 조성 지원·건축사사무소 등록(변경)·실태조사, 용도변경·대수선 인허가 및 위반건축물 지도·단속(만세구·효행구), 해당규모 7개층↑ 2천㎡↑'},
+  {dept:'건축과',team:'건축안전팀',name:'김준성',ext:'7321',email:'cameron02@korea.kr',duty:'건축물 관리점검(정기점검 지정·관리), 재난·수해주택 관련업무, 제3종시설물 관리, 건축현장 안전관리계획 수립·운영, 지역건축안전센터 운영'},
+  {dept:'건축과',team:'건축안전팀',name:'성태희',ext:'7320',email:'sth2340@korea.kr',duty:'기계설비 착공 전 확인·사용 전 검사, 기계설비 유지관리자 선임, 기계설비 유지관리 점검·확인'},
+  {dept:'건축과',team:'건축안전팀',name:'오지희',ext:'7322',email:'jiheeoh@korea.kr',duty:'대형건축공사장 감리업무 실태점검, 해체허가 공사현장 안전점검'},
+  {dept:'건축과',team:'광고물관리팀',name:'이새롬',ext:'2564',email:'',duty:'옥외광고 발전기금 운용, 심의위원회 구성·운영, 옥외광고물 조례·고시, 현수막게시대 신규설치, 간판개선사업'},
+  {dept:'건축과',team:'광고물관리팀',name:'이혁진',ext:'1859',email:'hj9983@korea.kr',duty:'옥외광고물 관리·정비계획 수립, 현수막지정게시대 운영·관리, 시민참여정비단 운영, 옥외광고고업 등록·관리'},
+  /* ── 주택정책과 ── */
+  {dept:'주택정책과',team:'주택정책팀',name:'최혜원',ext:'2403',email:'hwchoi@korea.kr',duty:'일반지역 주택사업업무 총괄, 당면현안사항 관리'},
+  {dept:'주택정책과',team:'주택정책팀',name:'최현수',ext:'2405',email:'punos78@korea.kr',duty:'주택건설사업계획승인·관리(마도·비봉·매송·우정·장안·향남 장점지구), 주택행정 건설화(우수시·군 평가)'},
+  {dept:'주택정책과',team:'주택정책팀',name:'윤보연',ext:'6303',email:'qhdus112@korea.kr',duty:'주택건설사업계획승인·관리(남양·봉담·정남·기배·병점구·동탄구), 주택조례·리모델링사업'},
+  {dept:'주택정책과',team:'주택정책팀',name:'김민주',ext:'2404',email:'juya06@korea.kr',duty:'국·과 서무, 국·과 회계, 기록물관리, 정보보안(개인정보), 세움터(주택인허가) 관련 관리'},
+  {dept:'주택정책과',team:'주택정책팀',name:'이신영',ext:'3242',email:'syl2@korea.kr',duty:'주택건설사업계획승인·관리(송산·서신·팔탄·향남 장점지구 외·양감·새솔), 국민신문고 접수·관리, 정보공개청구 접수·관리, 우편물관리, 정원활동'},
+  {dept:'주택정책과',team:'신도시주택팀',name:'권미선',ext:'3241',email:'sutain0722@korea.kr',duty:'주택건설사업계획승인·관리(동탄(2) C18·BD2, 동탄(1) M1-2-2, 향남2지구 M2, 대지조성사업)'},
+  {dept:'주택정책과',team:'신도시주택팀',name:'양윤선',ext:'3243',email:'ys0207@korea.kr',duty:'주택건설사업계획승인·관리(동탄(2) A57-2, 동탄(1) M1-1-2, 남양뉴타운 B8·B15·B16·비봉지구 B1), 분양가심사위원회 관리'},
+  {dept:'주택정책과',team:'신도시주택팀',name:'진민희',ext:'3224',email:'minhui0117@korea.kr',duty:'주택건설사업계획승인·관리(향남2지구 B16·송산그린시티 EE2·동탄(2) B12·남양뉴타운 B5), 도시 및 주거환경정비 기본계획 수립·조례 운영, 주택 재건축 정비사업(화산주택)'},
+  {dept:'주택정책과',team:'신도시주택팀',name:'김예진',ext:'2392',email:'rasolrasol@korea.kr',duty:'주택건설사업계획승인·관리(동탄(2) A58·A76-2·B11·남양뉴타운 B7·C1·향남2지구 B13·B14·C12), LH·GH 공공주택 협의'},
+  {dept:'주택정책과',team:'품질점검팀',name:'강지현',ext:'6488',email:'a191021@korea.kr',duty:'공동주택 품질점검·감리업무 수행실태 점검, 공동주택 품질점검 계획 수립·설치·운영·조례 운영, 공동주택 품질점검단 구성, 주택통계'},
+  {dept:'주택정책과',team:'주거복지팀',name:'박진수',ext:'3840',email:'nivas@korea.kr',duty:'주거급여 보장비용 결정·지원(만세구·효행구·병점구), 주거급여(수선유지급여) 지원, 주거급여 부정수급비 환수, 주거복지센터 운영'},
+  {dept:'주택정책과',team:'주거복지팀',name:'이정원',ext:'6069',email:'garden828@korea.kr',duty:'주거급여 보장결정·지원(동탄구), 주거취약계층 주거상향 지원, 주거취약계층 이사비 지원, 주거취약계층 주거 지원, LH 긴급주거 지원, 신혼부부 전세자금 대출이자 지원'},
+  {dept:'주택정책과',team:'주거복지팀',name:'엄서현',ext:'3848',email:'rmaeod6@korea.kr',duty:'전세보증금 반환보증 보증료 지원, 전세피해가구 긴급생계비 지원, 장애인 주택개조사업, 다자녀 주택자금 대출이자 지원, 저소득층 공공임대주택 입주자 추천'},
+  /* ── 공동주택과 ── */
+  {dept:'공동주택과',team:'공동주택행정팀',name:'박혜옥',ext:'2399',email:'orda2772@korea.kr',duty:'공동주택 관리 컨설팅(동탄구·병점구 병점동)'},
+  {dept:'공동주택과',team:'공동주택행정팀',name:'강정은',ext:'2414',email:'kjerhtn@korea.kr',duty:'공동주택관리 컨설팅(만세구·효행구·병점구 병점동 제외)'},
+  {dept:'공동주택과',team:'공동주택행정팀',name:'신용진',ext:'7066',email:'piece0921@korea.kr',duty:'공동주택관리 지시·정책사항 관리, 공동주택관리 조례 개정·운영, 임대주택 분양전환, 주택(임대)관리업 등록·관리, 주택관리사(보) 자격 관련 업무'},
+  {dept:'공동주택과',team:'공동주택행정팀',name:'김성주',ext:'7067',email:'kism91@korea.kr',duty:'서무·회계, 기록물관리, 정보보안(개인정보), 세외수입 관리, 공동주택관리 사전 컨설팅 계획수립, 우수단지 선정 지원'},
+  {dept:'공동주택과',team:'공동주택감사팀',name:'이미경',ext:'6490',email:'mk0913@korea.kr',duty:'공동주택관리지원센터 지원업무, 공동주택관리 감사업무 지원'},
+  {dept:'공동주택과',team:'공동주택감사팀',name:'김연희',ext:'2836',email:'dhkth@korea.kr',duty:'공동주택 관리 감사·조치(병점구·동탄구), 공동주택 감사 조례 운영·감사계획수립, 전문 감사관 운영·관리, 공동주택관리 분쟁조정위원회 운영, 소규모 공동주택 안전 점검'},
+  {dept:'공동주택과',team:'공동주택감사팀',name:'김희진',ext:'6068',email:'khjin0723@korea.kr',duty:'공동주택관리 감사·조치(만세구·효행구), 공동주택관리 지원시스템 모니터링, 공동주택관리 교육, 임대주택분쟁조정위원회 운영, 공동주택관리지원센터 업무 지원'},
+  {dept:'공동주택과',team:'공동주택지원팀',name:'정하은',ext:'6418',email:'hejj1209@korea.kr',duty:'공동주택 승강기 교체 지원사업, 공동주택 공용시설 개보수 지원사업, 공동주택 주차장 개방 지원사업, 공동주택 심의위원회 운영, 공동주택관리 자문단 운영, 공동주택지원 지시·정책사항 관리'},
+  {dept:'공동주택과',team:'공동주택지원팀',name:'김현우',ext:'6305',email:'khw3@korea.kr',duty:'공동주택 안전 관련 시설 지원사업, 공동주택 경비초소 노동자 휴게실 개선 지원사업, 공동주택 경비실 에어컨 설치 지원사업'},
+  {dept:'공동주택과',team:'공동주택지원팀',name:'박규미',ext:'7242',email:'mee0502@korea.kr',duty:'공동주택 공동체 생활 활성화 지원사업, 공공임대주택 공동전기료 지원사업, 농어촌 주택개량사업, 농어촌 빈집 정비사업'},
+  /* ── 공공건축과 ── */
+  {dept:'공공건축과',team:'공공건축계획팀',name:'홍태경',ext:'2662',email:'htk0414@korea.kr',duty:'공공시설 기획단계 협의·지원, 총사업비 관리 심의위원회 운영, 공공건축현장 재난·재해 관리업무, 반화도서관 건립, 향남 청소년 문화의집 건립'},
+  {dept:'공공건축과',team:'공공건축계획팀',name:'장수연',ext:'6409',email:'jpk36@korea.kr',duty:'서무, 회계, 기록물관리, 정보보안'},
+  {dept:'공공건축과',team:'공공건축계획팀',name:'한정현',ext:'7133',email:'han3491@korea.kr',duty:'동부 반다비 체육센터 건립, (가정)동탄2 청소년문화의집 건립, 공공건축물 제로에너지 업무, 상계거래 시스템 도입·관리, 화성 서해마루 유스호스텔 건립 사후관리'},
+  {dept:'공공건축과',team:'공공건축계획팀',name:'손성원',ext:'6405',email:'ssw0828@korea.kr',duty:'동탄호수공원 어울림센터 A동 리모델링, (가정)화성시 독서문화공간 리모델링, 화성시 공공건축 품질자문단 운영, 활제정조복지센터 사후관리'},
+  {dept:'공공건축과',team:'공공정사팀',name:'이상복',ext:'3748',email:'taazaan@korea.kr',duty:'공공정사 건립업무(의회), 공공정사 건립계획 수립(직속기관·사업소), 활계 도시재생어울림센터 건립'},
+  {dept:'공공건축과',team:'공공정사팀',name:'박언빈',ext:'6411',email:'pyb60@korea.kr',duty:'(재)화성푸드통합지원센터 건립, 공공정사 건립계획 수립(읍면동 동부·동탄관 제외), 부지매입이 필요한 읍면동 증·개축(읍면동 동부·동탄관 제외), 화성 반다비 체육센터 사후관리'},
+  {dept:'공공건축과',team:'공공정사팀',name:'이승욱',ext:'3790',email:'sw3118@korea.kr',duty:'공공정사 건립업무(남양읍·봉담읍·향남읍), 공공정사 건립계획 수립(읍면동 동부·동탄관), 부지매입이 필요한 읍면동 증·개축(읍면동 동부·동탄관)'},
+  {dept:'공공건축과',team:'공공건축팀',name:'최병훈',ext:'7201',email:'dkor011@korea.kr',duty:'북부종합사회복지관 건립, 화성시 실내배드민턴장 사후관리, 향남 하길리 공영주차장 사후관리, 공공건축 스마트 모니터링(AI) 시스템 도입'},
+  {dept:'공공건축과',team:'공공건축팀',name:'배민지',ext:'6403',email:'minji820@korea.kr',duty:'에코팜랜드 조성 사후관리, 장안 다목적복합센터 건립, 공공건축 감리 실태조사·업무점검'},
+  {dept:'공공건축과',team:'공공건축팀',name:'김태진',ext:'6408',email:'tj921@korea.kr',duty:'남양 체육복합센터 건립, 봉담 어우복합문도서관 건립 사후관리'},
+  {dept:'공공건축과',team:'공공건축팀',name:'김진영',ext:'7202',email:'shs4345@korea.kr',duty:'비봉습지 생물자원 보전시설 설치, 화성시 가족만세센터 사후관리, 화성동탄중앙도서관 사후관리'}
+];
+
+// 알림 이력 저장 (세션 내 보관)
+var _noticeHistory=[];
+
 function renderEmergContacts(){
   return '<div class="card"><div class="card-title">📞 긴급 연락처</div>'+
     '<div class="emerg-grid">'+
     '<a href="tel:119" class="emerg-btn emerg-119"><div class="emerg-icon">🚒</div><div class="emerg-name">소방·구급</div><div class="emerg-num">119</div></a>'+
     '<a href="tel:112" class="emerg-btn emerg-112"><div class="emerg-icon">👮</div><div class="emerg-name">경찰</div><div class="emerg-num">112</div></a>'+
-    '<a href="tel:0318969081" class="emerg-btn emerg-city"><div class="emerg-icon">🏛️</div><div class="emerg-name">화성시 건축과</div><div class="emerg-num">031-896-9081</div></a>'+
+    '<a href="tel:0315189322" class="emerg-btn emerg-city"><div class="emerg-icon">🏛️</div><div class="emerg-name">화성시 건축과</div><div class="emerg-num">031-5189-7322</div></a>'+
     '<a href="tel:1588-0075" class="emerg-btn emerg-worker"><div class="emerg-icon">⚕️</div><div class="emerg-name">근로복지공단</div><div class="emerg-num">1588-0075</div></a>'+
     '<a href="tel:1588-7075" class="emerg-btn emerg-worker" style="background:#e8f4fd;color:#1565c0"><div class="emerg-icon">🩺</div><div class="emerg-name">산재 신고</div><div class="emerg-num">1588-7075</div></a>'+
     '<a href="tel:1544-1350" class="emerg-btn emerg-worker" style="background:#f0f4c3;color:#558b2f"><div class="emerg-icon">☎️</div><div class="emerg-name">안전보건공단</div><div class="emerg-num">1544-1350</div></a>'+
-    '</div></div>';
+    '</div></div>'+
+    renderCityContacts();
+}
+
+/* ── 화성시 건축 관련 부서 담당자 연락처 렌더 ── */
+var _contactFilter={dept:'',team:'',keyword:''};
+function renderCityContacts(){
+  var depts=[...new Set(HWASEONG_CONTACTS.map(function(c){return c.dept;}))];
+  var teams=[...new Set(HWASEONG_CONTACTS.filter(function(c){return !_contactFilter.dept||c.dept===_contactFilter.dept;}).map(function(c){return c.team;}))];
+  var list=HWASEONG_CONTACTS.filter(function(c){
+    var d=!_contactFilter.dept||c.dept===_contactFilter.dept;
+    var t=!_contactFilter.team||c.team===_contactFilter.team;
+    var kw=!_contactFilter.keyword||(c.name.includes(_contactFilter.keyword)||c.duty.includes(_contactFilter.keyword)||c.team.includes(_contactFilter.keyword));
+    return d&&t&&kw;
+  });
+  return '<div class="card"><div class="card-title">🏛️ 화성시 건축 관련 담당자 연락처<span style="font-size:.72rem;font-weight:400;color:#718096;margin-left:8px">주무관급 기준</span></div>'+
+    '<div class="filter-bar" style="margin-bottom:10px">'+
+    '<select id="ct_dept" onchange="_contactFilter.dept=this.value;_contactFilter.team=\'\';el(\'tabContent\').innerHTML=renderEmergTab()" style="font-size:.8rem">'+
+    '<option value="">전체 부서</option>'+depts.map(function(d){return '<option value="'+d+'"'+(d===_contactFilter.dept?' selected':'')+'>'+d+'</option>';}).join('')+
+    '</select>'+
+    '<select id="ct_team" onchange="_contactFilter.team=this.value;el(\'tabContent\').innerHTML=renderEmergTab()" style="font-size:.8rem">'+
+    '<option value="">전체 팀</option>'+teams.map(function(t){return '<option value="'+t+'"'+(t===_contactFilter.team?' selected':'')+'>'+t+'</option>';}).join('')+
+    '</select>'+
+    '<input type="text" placeholder="🔍 이름·담당업무 검색" style="font-size:.8rem;min-width:130px" value="'+_contactFilter.keyword+'" oninput="_contactFilter.keyword=this.value;el(\'tabContent\').innerHTML=renderEmergTab()">'+
+    '<span style="font-size:.77rem;color:#718096;margin-left:auto">'+list.length+'명</span>'+
+    '</div>'+
+    '<div class="table-wrap"><table style="font-size:.79rem"><tr>'+
+    '<th style="min-width:70px">부서</th><th style="min-width:80px">팀</th><th style="min-width:44px">성명</th><th style="min-width:58px">내선</th><th style="min-width:130px">이메일</th><th>담당업무</th>'+
+    '</tr>'+
+    (list.length===0?'<tr><td colspan="6"><div class="empty-state">검색 결과 없음</div></td></tr>'
+      :list.map(function(c){
+        return '<tr>'+
+          '<td style="white-space:nowrap"><span class="badge '+(c.dept==='건축과'?'badge-blue':c.dept==='주택정책과'?'badge-green':c.dept==='공동주택과'?'badge-purple':'badge-orange')+'">'+c.dept+'</span></td>'+
+          '<td style="font-size:.75rem;color:#4a5568">'+c.team+'</td>'+
+          '<td style="font-weight:700;color:#1a5276">'+c.name+'</td>'+
+          '<td><a href="tel:031518'+c.ext+'" style="color:#2e86c1;font-weight:700;text-decoration:none">'+c.ext+'</a></td>'+
+          '<td style="font-size:.73rem">'+(c.email?'<a href="mailto:'+c.email+'" style="color:#718096;text-decoration:none">'+c.email+'</a>':'-')+'</td>'+
+          '<td style="text-align:left;font-size:.76rem;color:#4a5568;line-height:1.5">'+c.duty+'</td>'+
+          '</tr>';
+      }).join(''))+
+    '</table></div></div>';
 }
 
 /* ============================================================
@@ -1054,13 +1156,14 @@ function renderWageTab(){
    시공업체: 긴급연락처 탭
 ============================================================ */
 function renderEmergTab(){
+  _contactFilter={dept:'',team:'',keyword:''};
   return renderEmergContacts()+
     '<div class="card"><div class="card-title">⚠️ 사고 발생 시 조치 순서</div>'+
     '<div style="line-height:2;font-size:.87rem">'+
     '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f8"><span style="background:#e74c3c;color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.78rem;font-weight:700">1</span><div><strong>119 신고 및 환자 이송</strong> — 의식 여부 확인, 추가 사고 방지</div></div>'+
     '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f8"><span style="background:#e67e22;color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.78rem;font-weight:700">2</span><div><strong>현장 보존</strong> — 사고 현장 촬영(사진), 목격자 확인</div></div>'+
     '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f8"><span style="background:#2e86c1;color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.78rem;font-weight:700">3</span><div><strong>근로복지공단 신고</strong> — 산재 신고 (1588-0075)</div></div>'+
-    '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0"><span style="background:#27ae60;color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.78rem;font-weight:700">4</span><div><strong>화성시 건축과 보고</strong> — 031-896-9081</div></div>'+
+    '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0"><span style="background:#27ae60;color:white;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.78rem;font-weight:700">4</span><div><strong>화성시 건축과 보고</strong> — 031-5189-7322</div></div>'+
     '</div></div>';
 }
 
@@ -1615,7 +1718,44 @@ function closeRiskPopup(){el('riskPopup').classList.remove('show');}
 function renderNoticeManager(){
   var info=_adminInfo||{};
   var sites=_sites.filter(function(s){return s.공정률<100;});
-  return '<div class="card"><div class="card-title">📅 이번주 점검예정 현장 설정</div>'+
+  var plannedSites=sites.filter(function(s){return s.점검예정;});
+
+  // ── 현재 알림 설정 현황 패널
+  var statusHtml=
+    '<div class="card" style="margin-bottom:15px;border:2px solid #2e86c1">'+
+    '<div class="card-title" style="margin-bottom:10px">📌 현재 알림 설정 현황<button type="button" class="btn-info" style="margin-left:auto;font-size:.75rem" onclick="showNoticeHistoryPopup()">📋 전체 이력 보기</button></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+    '<div style="background:#f7fafc;border-radius:10px;padding:12px">'+
+    '<div style="font-size:.73rem;color:#718096;margin-bottom:4px">📅 이번 주 점검예정 현장</div>'+
+    (plannedSites.length===0
+      ?'<div style="font-size:.84rem;color:#a0aec0">없음</div>'
+      :plannedSites.map(function(s){return '<div style="display:flex;align-items:center;gap:5px;padding:3px 0;font-size:.81rem"><span class="badge badge-green">예정</span><span style="color:#1a5276;font-weight:700">'+s.companyName+'</span><span style="font-size:.72rem;color:#718096">'+s.주소.slice(0,14)+'</span></div>';}).join(''))+
+    '</div>'+
+    '<div style="background:#f7fafc;border-radius:10px;padding:12px">'+
+    '<div style="font-size:.73rem;color:#718096;margin-bottom:4px">🌡️ 계절 안전 알림</div>'+
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
+    '<span style="width:10px;height:10px;border-radius:50%;background:'+(info.seasonNoticeActive?'#27ae60':'#bdc3c7')+';display:inline-block"></span>'+
+    '<span style="font-size:.83rem;font-weight:700;color:'+(info.seasonNoticeActive?'#27ae60':'#718096')+'">'+(info.seasonNoticeActive?'활성화':'비활성화')+'</span>'+
+    '</div>'+
+    (info.seasonNoticeTitle?'<div style="font-size:.8rem;font-weight:600;color:#1a5276;margin-bottom:3px">'+info.seasonNoticeTitle+'</div>':'')+
+    (info.seasonNoticeMsg?'<div style="font-size:.76rem;color:#4a5568;line-height:1.5;max-height:52px;overflow:hidden">'+info.seasonNoticeMsg+'</div>':'')+
+    '</div>'+
+    '</div>'+
+    // 최근 알림 이력 (최대 5개)
+    (_noticeHistory.length>0?
+    '<div style="margin-top:8px"><div style="font-size:.77rem;font-weight:600;color:#718096;margin-bottom:5px">🕐 최근 저장 이력</div>'+
+    _noticeHistory.slice(-5).reverse().map(function(h){
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #f0f4f8;font-size:.77rem">'+
+        '<span style="color:#718096;flex-shrink:0;min-width:105px">'+h.time+'</span>'+
+        '<span style="width:8px;height:8px;border-radius:50%;background:'+(h.active?'#27ae60':'#bdc3c7')+';margin-top:4px;flex-shrink:0"></span>'+
+        '<span style="color:#4a5568"><strong>'+h.title+'</strong> — '+h.msg.slice(0,28)+(h.msg.length>28?'…':'')+'</span>'+
+        '</div>';
+    }).join('')+
+    '</div>':'<div style="margin-top:8px;font-size:.77rem;color:#a0aec0">저장 이력이 없습니다</div>')+
+    '</div>';
+
+  return statusHtml+
+    '<div class="card"><div class="card-title">📅 이번주 점검예정 현장 설정</div>'+
     '<p style="font-size:.8rem;color:#718096;margin-bottom:12px">체크하면 해당 업체가 로그인 시 점검예정 알림 팝업을 받습니다.</p>'+
     '<div class="table-wrap"><table><tr><th>허가번호</th><th>업체명</th><th>주소</th><th>공사유형</th><th>현재공종</th><th>공정률</th><th>점검예정</th></tr>'+
     (sites.length===0?'<tr><td colspan="7"><div class="empty-state">현장 없음</div></td></tr>'
@@ -1649,15 +1789,94 @@ function renderNoticeManager(){
 }
 function toggleInspPlan(siteId,checked){
   var s=_sites.find(function(x){return x.id===siteId;});if(!s)return;
-  saveDoc('sites',siteId,{점검예정:checked}).then(function(){s.점검예정=checked;showToast(checked?'📅 점검예정으로 표시됨':'점검예정 해제됨');}).catch(function(e){showToast('❌ '+e.message);});
+  saveDoc('sites',siteId,{점검예정:checked}).then(function(){s.점검예정=checked;showToast(checked?'📅 점검예정으로 표시됨':'점검예정 해제됨');switchTab('noticeManager');}).catch(function(e){showToast('❌ '+e.message);});
 }
 function saveSeasonNotice(){
   var active=el('snActive').checked,title=gv('snTitle'),msg=gv('snMsg');
+  if(!title&&active){showToast('⚠️ 알림 제목을 입력해주세요');return;}
   showLoading('저장 중...');
   saveDoc('adminInfo','info',{seasonNoticeActive:active,seasonNoticeTitle:title,seasonNoticeMsg:msg})
-    .then(function(){if(_adminInfo){_adminInfo.seasonNoticeActive=active;_adminInfo.seasonNoticeTitle=title;_adminInfo.seasonNoticeMsg=msg;}showToast('✅ 알림 설정이 저장되었습니다');})
+    .then(function(){
+      if(_adminInfo){_adminInfo.seasonNoticeActive=active;_adminInfo.seasonNoticeTitle=title;_adminInfo.seasonNoticeMsg=msg;}
+      // 이력에 추가
+      var now=new Date();
+      var timeStr=now.getFullYear()+'.'+(now.getMonth()+1)+'.'+now.getDate()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+      _noticeHistory.push({time:timeStr,active:active,title:title||'(제목 없음)',msg:msg||''});
+      if(_noticeHistory.length>20)_noticeHistory=_noticeHistory.slice(-20);
+      showToast('✅ 알림 설정이 저장되었습니다');
+      switchTab('noticeManager');
+    })
     .catch(function(e){showToast('❌ '+e.message);}).then(function(){hideLoading();});
 }
+
+/* 알림 이력 전체 팝업 */
+function showNoticeHistoryPopup(){
+  var info=_adminInfo||{};
+  var body='<div style="padding:0 20px 20px">';
+  if(_noticeHistory.length===0){
+    body+='<div class="empty-state"><div class="icon">📋</div>저장 이력이 없습니다</div>';
+  } else {
+    body+='<div style="font-size:.8rem;color:#718096;margin-bottom:10px">세션 내 저장 기록 ('+_noticeHistory.length+'건)</div>';
+    body+=_noticeHistory.slice().reverse().map(function(h,i){
+      return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:8px">'+
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'+
+        '<span style="font-size:.72rem;color:#718096">'+h.time+'</span>'+
+        '<span style="width:8px;height:8px;border-radius:50%;background:'+(h.active?'#27ae60':'#bdc3c7')+'"></span>'+
+        '<span style="font-size:.77rem;font-weight:700;color:'+(h.active?'#27ae60':'#718096')+'">'+(h.active?'활성화':'비활성화')+'</span>'+
+        '</div>'+
+        '<div style="font-size:.84rem;font-weight:700;color:#1a5276;margin-bottom:3px">'+h.title+'</div>'+
+        '<div style="font-size:.79rem;color:#4a5568;line-height:1.6;white-space:pre-line">'+h.msg+'</div>'+
+        '</div>';
+    }).join('');
+  }
+  // 현재 DB 설정 표시
+  body+='<div style="margin-top:14px;padding:12px;background:#eaf4fb;border-radius:10px">'+
+    '<div style="font-size:.77rem;font-weight:700;color:#1a5276;margin-bottom:6px">📌 현재 DB 저장값</div>'+
+    '<div style="font-size:.8rem"><span class="badge '+(info.seasonNoticeActive?'badge-green':'badge-gray')+'">'+(info.seasonNoticeActive?'활성화':'비활성화')+'</span>'+
+    (info.seasonNoticeTitle?' <strong>'+info.seasonNoticeTitle+'</strong>':' (제목 없음)')+'<br>'+
+    '<span style="font-size:.76rem;color:#718096;white-space:pre-line;line-height:1.6">'+(info.seasonNoticeMsg||'(메시지 없음)')+'</span>'+
+    '</div></div>'+
+    '</div>';
+  el('listPopupTitle').textContent='📋 알림 설정 전체 이력';
+  el('listPopupBody').innerHTML=body;
+  el('listPopup').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function showNoticeHistoryPopup(){}
+// 위 함수 재정의 (실제 구현)
+showNoticeHistoryPopup=function(){
+  var info=_adminInfo||{};
+  var body='<div style="padding:0 20px 20px">';
+  if(_noticeHistory.length===0&&!info.seasonNoticeTitle){
+    body+='<div class="empty-state"><div class="icon">📋</div>저장 이력이 없습니다</div>';
+  } else {
+    if(_noticeHistory.length>0){
+      body+='<div style="font-size:.8rem;color:#718096;margin-bottom:10px">세션 내 저장 기록 ('+_noticeHistory.length+'건)</div>';
+      body+=_noticeHistory.slice().reverse().map(function(h){
+        return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:8px">'+
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">'+
+          '<span style="font-size:.72rem;color:#718096">'+h.time+'</span>'+
+          '<span style="width:8px;height:8px;border-radius:50%;background:'+(h.active?'#27ae60':'#bdc3c7')+'"></span>'+
+          '<span style="font-size:.77rem;font-weight:700;color:'+(h.active?'#27ae60':'#718096')+'">'+(h.active?'활성화':'비활성화')+'</span>'+
+          '</div>'+
+          '<div style="font-size:.84rem;font-weight:700;color:#1a5276;margin-bottom:3px">'+h.title+'</div>'+
+          '<div style="font-size:.79rem;color:#4a5568;line-height:1.6;white-space:pre-line">'+h.msg+'</div>'+
+          '</div>';
+      }).join('');
+    }
+  }
+  body+='<div style="margin-top:14px;padding:12px;background:#eaf4fb;border-radius:10px">'+
+    '<div style="font-size:.77rem;font-weight:700;color:#1a5276;margin-bottom:6px">📌 현재 DB 저장값</div>'+
+    '<div style="font-size:.8rem"><span class="badge '+(info.seasonNoticeActive?'badge-green':'badge-gray')+'">'+(info.seasonNoticeActive?'활성화':'비활성화')+'</span>'+
+    (info.seasonNoticeTitle?' <strong>'+info.seasonNoticeTitle+'</strong>':' (제목 없음)')+'<br>'+
+    '<span style="font-size:.76rem;color:#718096;line-height:1.6;white-space:pre-line">'+(info.seasonNoticeMsg||'(메시지 없음)')+'</span>'+
+    '</div></div>'+
+    '</div>';
+  el('listPopupTitle').textContent='📋 알림 설정 전체 이력';
+  el('listPopupBody').innerHTML=body;
+  el('listPopup').classList.add('show');
+  document.body.style.overflow='hidden';
+};
 
 /* ============================================================
    업체 알림 팝업 (점검예정 + 계절안전)
@@ -1870,7 +2089,7 @@ function renderGuide(){
     '<div style="margin-bottom:12px"><div style="font-weight:700;color:#1a5276;margin-bottom:6px">📌 로그인 방법</div>'+
     '<ol style="padding-left:16px"><li>처음 이용 시 <strong>[신규 업체 등록]</strong>으로 계정 생성</li><li>이후 목록에서 업체명 클릭 → 비밀번호 입력</li><li>비밀번호: <strong>영문+숫자 6자 이상</strong></li></ol></div>'+
     '<div style="background:#fef3e2;border-radius:12px;padding:12px"><div style="font-weight:700;color:#d35400;margin-bottom:4px">⚠️ 주의사항</div>'+
-    '<ul style="padding-left:16px"><li>비밀번호 분실 시 화성시 건축과 ☎ 031-896-9081</li><li>허위 공정률 입력 시 현장 점검 시 확인됩니다</li><li>최소 <strong>주 1회</strong> 공정률 업데이트를 권장합니다</li></ul></div></div></div>';
+    '<ul style="padding-left:16px"><li>비밀번호 분실 시 화성시 건축과 ☎ 031-5189-7322</li><li>허위 공정률 입력 시 현장 점검 시 확인됩니다</li><li>최소 <strong>주 1회</strong> 공정률 업데이트를 권장합니다</li></ul></div></div></div>';
 }
 </script>
 </body>
